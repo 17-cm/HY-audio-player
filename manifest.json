@@ -4,7 +4,6 @@
   "author": "hy.禾一",
   "homePage": "https://github.com/17-cm/HY-audio-player",
   "js": "index.js",
-  "css": "style.css",
   "auto_update": true,
   "requires": [],
   "optional": [],
