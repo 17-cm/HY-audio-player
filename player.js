@@ -1504,6 +1504,19 @@
             return 'normal';
         },
 
+        // 隐藏UI（音乐继续播放）
+        hideUI() {
+            const root = document.getElementById('player-root');
+            const rhythmIcon = document.getElementById('player-rhythm-icon');
+            if (root) root.style.display = 'none';
+            if (rhythmIcon) rhythmIcon.style.display = 'none';
+        },
+
+        // 显示UI
+        showUI() {
+            this.updateView();
+        }
+
         // 注入CSS
         injectCSS() {
             const css = `
