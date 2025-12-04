@@ -258,8 +258,12 @@
             
             // 应用隐藏状态
             setTimeout(() => {
-                if (ExtensionState.playerHidden && window.MusicPlayerApp) {
-                    window.MusicPlayerApp.hideUI();
+                if (window.MusicPlayerApp) {
+                    if (ExtensionState.playerHidden) {
+                        window.MusicPlayerApp.hideUI();
+                    } else {
+                        window.MusicPlayerApp.showUI();
+                    }
                 }
             }, 500);
         };
