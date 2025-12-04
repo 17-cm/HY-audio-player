@@ -1,8 +1,7 @@
 /*
  * 音乐播放器扩展核心逻辑
- * 版本: 1.0.0
+ * 版本: 1.0.1 - 优化移动端适配
  * 作者: 17-cm
- * 修复问题: 拖拽失效、磨砂玻璃边框、尺寸设置、移动端适配、历史导入位置
  */
 
 const MusicPlayerApp = {
@@ -41,12 +40,12 @@ const MusicPlayerApp = {
         isPureMode: false,
         isMobile: false,
         currentApiIndex: 1,
-        playMode: 0, // 0:顺序 1:列表循环 2:随机
-        rgbMode: 0, // 0:关闭 1:单色 2:彩虹
+        playMode: 0,
+        rgbMode: 0,
         glassEnabled: true,
         glassOpacity: 0.6,
         playbackSpeed: 1.0,
-        currentPanel: null, // 'settings', 'playlist', 'history'
+        currentPanel: null,
         lyrics: [],
         currentLyricIndex: -1,
         importHistory: [],
@@ -61,43 +60,31 @@ const MusicPlayerApp = {
     init() {
         console.log('🎵 初始化音乐播放器扩展');
         
-        // 检测环境
         this.detectEnvironment();
-        
-        // 创建UI
         this.createUI();
-        
-        // 加载数据
         this.loadData();
-        
-        // 绑定事件
         this.bindEvents();
-        
-        // 初始化音频
         this.initAudio();
-        
-        // 绑定快捷键
         this.bindKeyboardShortcuts();
-        
-        // 更新视图
         this.updateView();
         
         console.log('✅ 音乐播放器扩展初始化完成');
     },
     
     detectEnvironment() {
-        // 检测移动端
         const ua = navigator.userAgent.toLowerCase();
         this.state.isMobile = /mobile|android|iphone|ipad|ipod|windows phone/.test(ua);
         
-        // 调整移动端默认设置
         if (this.state.isMobile) {
             this.config.defaultSettings.playerWidth = '90vw';
-            this.config.defaultSettings.playerHeight = '180px';
+            this.config.defaultSettings.playerHeight = '200px';
             this.config.defaultSettings.coverWidth = 70;
             this.config.defaultSettings.coverHeight = 70;
+            this.config.defaultSettings.borderWidth = '4px';
             this.config.defaultSettings.position = { x: '5vw', y: '10vh' };
         }
+        
+        console.log('📱 设备类型:', this.state.isMobile ? '移动端' : '桌面端');
     },
     
     createUI() {
@@ -107,7 +94,6 @@ const MusicPlayerApp = {
             return;
         }
         
-        // 创建播放器主结构
         container.innerHTML = `
             <!-- 最小化图标模式 -->
             <div id="player-icon" class="player-icon" style="display: none;">
@@ -127,13 +113,9 @@ const MusicPlayerApp = {
             
             <!-- 播放器主界面 -->
             <div id="player-main" class="player-main">
-                <!-- RGB边框层 -->
                 <div id="player-border" class="player-border"></div>
-                
-                <!-- 顶部拖拽岛 -->
                 <div id="drag-island" class="drag-island"></div>
                 
-                <!-- 内容区域 -->
                 <div id="player-content" class="player-content">
                     <!-- 主播放界面 -->
                     <div id="player-normal-mode" class="player-normal-mode">
@@ -145,9 +127,9 @@ const MusicPlayerApp = {
                                 <div id="player-lyrics" class="player-lyrics">⋆……𖦤……⋆</div>
                             </div>
                             <div class="player-controls-right">
-                                <button id="btn-minimize" class="control-btn" title="最小化">𓆝</button>
-                                <button id="btn-settings" class="control-btn" title="设置">⚙️</button>
-                                <button id="btn-pure-mode" class="control-btn" title="纯享模式">𓆟</button>
+                                <button type="button" id="btn-minimize" class="control-btn" title="最小化">𓆝</button>
+                                <button type="button" id="btn-settings" class="control-btn" title="设置">⚙️</button>
+                                <button type="button" id="btn-pure-mode" class="control-btn" title="纯享模式">𓆟</button>
                             </div>
                         </div>
                         
@@ -156,11 +138,11 @@ const MusicPlayerApp = {
                         </div>
                         
                         <div class="player-controls">
-                            <button id="btn-play-mode" class="control-btn mode-btn"></button>
-                            <button id="btn-prev" class="control-btn">⏮</button>
-                            <button id="btn-play" class="control-btn play-btn">▶</button>
-                            <button id="btn-next" class="control-btn">⏭</button>
-                            <button id="btn-playlist" class="control-btn" title="播放列表">☰</button>
+                            <button type="button" id="btn-play-mode" class="control-btn mode-btn"></button>
+                            <button type="button" id="btn-prev" class="control-btn">⏮</button>
+                            <button type="button" id="btn-play" class="control-btn play-btn">▶</button>
+                            <button type="button" id="btn-next" class="control-btn">⏭</button>
+                            <button type="button" id="btn-playlist" class="control-btn" title="播放列表">☰</button>
                         </div>
                     </div>
                     
@@ -173,11 +155,9 @@ const MusicPlayerApp = {
                     <div id="panel-settings" class="player-panel" style="display: none;">
                         <div class="panel-header">
                             <h3>播放器设置</h3>
-                            <button class="panel-close-btn" data-panel="settings">×</button>
+                            <button type="button" class="panel-close-btn" data-panel="settings">×</button>
                         </div>
-                        <div class="panel-content">
-                            <!-- 这里的内容会在JS中动态生成 -->
-                        </div>
+                        <div class="panel-content"></div>
                     </div>
                     
                     <!-- 播放列表面板 -->
@@ -185,16 +165,15 @@ const MusicPlayerApp = {
                         <div class="panel-header">
                             <div class="playlist-header-left">
                                 <h3>播放列表</h3>
-                                <button id="btn-show-history" class="history-btn" title="导入历史">📜</button>
+                                <button type="button" id="btn-show-history" class="history-btn" title="导入历史">📜</button>
                             </div>
-                            <button class="panel-close-btn" data-panel="playlist">×</button>
+                            <button type="button" class="panel-close-btn" data-panel="playlist">×</button>
                         </div>
                         
-                        <!-- 历史记录下拉菜单（新位置） -->
                         <div id="history-dropdown" class="history-dropdown" style="display: none;">
                             <div class="history-header">
                                 <h4>导入历史</h4>
-                                <button id="btn-close-history" class="small-btn">×</button>
+                                <button type="button" id="btn-close-history" class="small-btn">×</button>
                             </div>
                             <div id="history-list" class="history-list">
                                 <div class="no-history">暂无导入历史</div>
@@ -206,7 +185,7 @@ const MusicPlayerApp = {
                                 <div class="empty-playlist">
                                     <div class="empty-icon">🎵</div>
                                     <div class="empty-text">播放列表为空</div>
-                                    <button id="btn-add-song" class="add-song-btn">+ 添加歌曲</button>
+                                    <button type="button" id="btn-add-song" class="add-song-btn">+ 添加歌曲</button>
                                 </div>
                             </div>
                         </div>
@@ -222,19 +201,19 @@ const MusicPlayerApp = {
                 <div class="modal-dialog">
                     <div class="modal-header">
                         <h3>添加歌曲</h3>
-                        <button class="modal-close">×</button>
+                        <button type="button" class="modal-close">×</button>
                     </div>
                     <div class="modal-content">
                         <div class="add-options">
-                            <button class="add-option-btn" data-type="local">
+                            <button type="button" class="add-option-btn" data-type="local">
                                 <div class="option-icon">📁</div>
                                 <div class="option-text">本地文件</div>
                             </button>
-                            <button class="add-option-btn" data-type="link">
+                            <button type="button" class="add-option-btn" data-type="link">
                                 <div class="option-icon">🔗</div>
                                 <div class="option-text">链接导入</div>
                             </button>
-                            <button class="add-option-btn" data-type="netease">
+                            <button type="button" class="add-option-btn" data-type="netease">
                                 <div class="option-icon">☁️</div>
                                 <div class="option-text">网易云音乐</div>
                             </button>
@@ -248,15 +227,15 @@ const MusicPlayerApp = {
                 <div class="modal-dialog">
                     <div class="modal-header">
                         <h3>链接导入</h3>
-                        <button class="modal-close">×</button>
+                        <button type="button" class="modal-close">×</button>
                     </div>
                     <div class="modal-content">
                         <div class="link-options">
-                            <button class="link-option-btn" data-type="single">
+                            <button type="button" class="link-option-btn" data-type="single">
                                 <div class="option-icon">🎵</div>
                                 <div class="option-text">单曲导入</div>
                             </button>
-                            <button class="link-option-btn" data-type="playlist">
+                            <button type="button" class="link-option-btn" data-type="playlist">
                                 <div class="option-icon">📋</div>
                                 <div class="option-text">歌单导入</div>
                             </button>
@@ -274,7 +253,6 @@ const MusicPlayerApp = {
             </div>
         `;
         
-        // 初始化设置面板内容
         this.initSettingsPanel();
     },
     
@@ -296,9 +274,9 @@ const MusicPlayerApp = {
                 <div class="setting-item">
                     <label>播放模式</label>
                     <div class="mode-options">
-                        <button class="mode-option ${this.state.playMode === 0 ? 'active' : ''}" data-mode="0">顺序</button>
-                        <button class="mode-option ${this.state.playMode === 1 ? 'active' : ''}" data-mode="1">循环</button>
-                        <button class="mode-option ${this.state.playMode === 2 ? 'active' : ''}" data-mode="2">随机</button>
+                        <button type="button" class="mode-option ${this.state.playMode === 0 ? 'active' : ''}" data-mode="0">顺序</button>
+                        <button type="button" class="mode-option ${this.state.playMode === 1 ? 'active' : ''}" data-mode="1">循环</button>
+                        <button type="button" class="mode-option ${this.state.playMode === 2 ? 'active' : ''}" data-mode="2">随机</button>
                     </div>
                 </div>
             </div>
@@ -306,10 +284,10 @@ const MusicPlayerApp = {
             <div class="settings-section">
                 <h4>外观设置</h4>
                 <div class="setting-item">
-                    <label>播放器尺寸</label>
+                    <label>播放器宽度</label>
                     <div class="setting-control">
                         <span id="size-value">${this.state.settings.playerWidth || '400px'}</span>
-                        <input type="range" id="size-slider" min="300" max="600" step="10" value="${parseInt(this.state.settings.playerWidth || '400px')}">
+                        <input type="range" id="size-slider" min="300" max="600" step="10" value="${parseInt(this.state.settings.playerWidth) || 400}">
                     </div>
                 </div>
                 
@@ -317,7 +295,7 @@ const MusicPlayerApp = {
                     <label>边框宽度</label>
                     <div class="setting-control">
                         <span id="border-value">${this.state.settings.borderWidth || '6px'}</span>
-                        <input type="range" id="border-slider" min="1" max="20" step="1" value="${parseInt(this.state.settings.borderWidth || '6px')}">
+                        <input type="range" id="border-slider" min="1" max="20" step="1" value="${parseInt(this.state.settings.borderWidth) || 6}">
                     </div>
                 </div>
                 
@@ -353,9 +331,9 @@ const MusicPlayerApp = {
                 <div class="setting-item">
                     <label>RGB灯效</label>
                     <div class="rgb-options">
-                        <button class="rgb-option ${this.state.rgbMode === 0 ? 'active' : ''}" data-mode="0">关闭</button>
-                        <button class="rgb-option ${this.state.rgbMode === 1 ? 'active' : ''}" data-mode="1">单色</button>
-                        <button class="rgb-option ${this.state.rgbMode === 2 ? 'active' : ''}" data-mode="2">彩虹</button>
+                        <button type="button" class="rgb-option ${this.state.rgbMode === 0 ? 'active' : ''}" data-mode="0">关闭</button>
+                        <button type="button" class="rgb-option ${this.state.rgbMode === 1 ? 'active' : ''}" data-mode="1">单色</button>
+                        <button type="button" class="rgb-option ${this.state.rgbMode === 2 ? 'active' : ''}" data-mode="2">彩虹</button>
                     </div>
                 </div>
                 
@@ -396,14 +374,6 @@ const MusicPlayerApp = {
                         </div>
                     </div>
                 </div>
-                
-                <div class="setting-item">
-                    <label>背景图片</label>
-                    <div class="bg-image-controls">
-                        <button id="btn-upload-bg" class="upload-btn">上传背景</button>
-                        <button id="btn-reset-bg" class="reset-btn">重置</button>
-                    </div>
-                </div>
             </div>
             
             <div class="settings-section">
@@ -432,20 +402,16 @@ const MusicPlayerApp = {
             if (saved) {
                 const data = JSON.parse(saved);
                 
-                // 加载播放列表
                 if (data.playlist) {
                     this.state.playlist = data.playlist;
                 }
                 
-                // 加载状态
                 if (data.state) {
                     Object.assign(this.state, data.state);
                     
-                    // 确保设置存在
                     if (!this.state.settings) {
                         this.state.settings = { ...this.config.defaultSettings };
                     } else {
-                        // 合并默认设置
                         this.state.settings = { 
                             ...this.config.defaultSettings, 
                             ...this.state.settings 
@@ -455,12 +421,10 @@ const MusicPlayerApp = {
                     this.state.settings = { ...this.config.defaultSettings };
                 }
                 
-                // 加载导入历史
                 if (data.importHistory) {
                     this.state.importHistory = data.importHistory;
                 }
                 
-                // 加载位置
                 if (data.playerPosition) {
                     this.state.playerPosition = data.playerPosition;
                 }
@@ -468,17 +432,17 @@ const MusicPlayerApp = {
                     this.state.iconPosition = data.iconPosition;
                 }
             } else {
-                // 首次使用，使用默认设置
                 this.state.settings = { ...this.config.defaultSettings };
                 this.state.playerPosition = { ...this.config.defaultSettings.position };
             }
             
-            // 应用移动端调整
+            // 移动端调整
             if (this.state.isMobile) {
                 this.state.settings.playerWidth = '90vw';
-                this.state.settings.playerHeight = '180px';
+                this.state.settings.playerHeight = '200px';
                 this.state.settings.coverWidth = 70;
                 this.state.settings.coverHeight = 70;
+                this.state.settings.borderWidth = '4px';
                 
                 if (typeof this.state.playerPosition.x === 'number') {
                     this.state.playerPosition.x = '5vw';
@@ -527,7 +491,6 @@ const MusicPlayerApp = {
         this.state.audio = new Audio();
         this.state.audio.playbackRate = this.state.playbackSpeed;
         
-        // 音频事件监听
         this.state.audio.addEventListener('play', () => {
             this.state.isPlaying = true;
             this.updatePlayButton();
@@ -573,11 +536,9 @@ const MusicPlayerApp = {
                 this.showToast('播放失败', 'error');
             });
             
-            // 更新UI
             this.updateSongInfo();
             this.updatePlaylistHighlight();
             
-            // 解析歌词
             if (song.lyrics) {
                 this.state.lyrics = this.parseLyrics(song.lyrics);
             } else {
@@ -585,7 +546,6 @@ const MusicPlayerApp = {
             }
             this.state.currentLyricIndex = -1;
             
-            // 保存播放历史
             this.addImportHistory('play', {
                 title: song.title,
                 artist: song.artist
@@ -625,14 +585,14 @@ const MusicPlayerApp = {
         if (!this.state.playlist.length) return;
         
         let nextIndex;
-        if (this.state.playMode === 2) { // 随机
+        if (this.state.playMode === 2) {
             do {
                 nextIndex = Math.floor(Math.random() * this.state.playlist.length);
             } while (nextIndex === this.state.currentIndex && this.state.playlist.length > 1);
         } else {
             nextIndex = this.state.currentIndex + 1;
             if (nextIndex >= this.state.playlist.length) {
-                nextIndex = this.state.playMode === 1 ? 0 : -1; // 列表循环或停止
+                nextIndex = this.state.playMode === 1 ? 0 : -1;
             }
         }
         
@@ -654,26 +614,14 @@ const MusicPlayerApp = {
     
     // ==================== UI更新 ====================
     updateView() {
-        // 更新播放器位置
         this.updatePlayerPosition();
-        
-        // 更新播放器样式
         this.updatePlayerStyle();
-        
-        // 更新按钮状态
         this.updatePlayButton();
         this.updatePlayModeButton();
-        
-        // 更新播放列表
         this.updatePlaylist();
-        
-        // 更新历史记录
         this.updateHistoryList();
-        
-        // 更新可视化效果
         this.updateVisualizer();
         
-        // 更新纯享模式
         if (this.state.isPureMode) {
             this.updatePureLyrics();
         }
@@ -686,41 +634,19 @@ const MusicPlayerApp = {
         if (!playerMain || !playerIcon) return;
         
         if (this.state.isMinimized) {
-            // 显示图标，隐藏主界面
             playerMain.style.display = 'none';
             playerIcon.style.display = 'flex';
             
-            // 设置图标位置
             const pos = this.state.iconPosition;
-            if (typeof pos.x === 'string') {
-                playerIcon.style.left = pos.x;
-            } else {
-                playerIcon.style.left = pos.x + 'px';
-            }
-            
-            if (typeof pos.y === 'string') {
-                playerIcon.style.top = pos.y;
-            } else {
-                playerIcon.style.top = pos.y + 'px';
-            }
+            playerIcon.style.left = typeof pos.x === 'string' ? pos.x : pos.x + 'px';
+            playerIcon.style.top = typeof pos.y === 'string' ? pos.y : pos.y + 'px';
         } else {
-            // 显示主界面，隐藏图标
             playerMain.style.display = 'flex';
             playerIcon.style.display = 'none';
             
-            // 设置主界面位置
             const pos = this.state.playerPosition;
-            if (typeof pos.x === 'string') {
-                playerMain.style.left = pos.x;
-            } else {
-                playerMain.style.left = pos.x + 'px';
-            }
-            
-            if (typeof pos.y === 'string') {
-                playerMain.style.top = pos.y;
-            } else {
-                playerMain.style.top = pos.y + 'px';
-            }
+            playerMain.style.left = typeof pos.x === 'string' ? pos.x : pos.x + 'px';
+            playerMain.style.top = typeof pos.y === 'string' ? pos.y : pos.y + 'px';
         }
     },
     
@@ -838,7 +764,6 @@ const MusicPlayerApp = {
         
         lyricsEl.textContent = currentLine || '⋆……𖦤……⋆';
         
-        // 更新纯享模式歌词
         if (this.state.isPureMode) {
             this.updatePureLyrics();
         }
@@ -856,7 +781,6 @@ const MusicPlayerApp = {
         const currentIndex = this.state.currentLyricIndex;
         if (currentIndex < 0) return;
         
-        // 显示当前行和前两行、后两行
         const start = Math.max(0, currentIndex - 2);
         const end = Math.min(this.state.lyrics.length, currentIndex + 3);
         
@@ -868,7 +792,6 @@ const MusicPlayerApp = {
         
         container.innerHTML = html;
         
-        // 计算当前歌词进度
         if (currentIndex < this.state.lyrics.length - 1) {
             const currentTime = this.state.lyrics[currentIndex].time;
             const nextTime = this.state.lyrics[currentIndex + 1].time;
@@ -892,7 +815,7 @@ const MusicPlayerApp = {
                 <div class="empty-playlist">
                     <div class="empty-icon">🎵</div>
                     <div class="empty-text">播放列表为空</div>
-                    <button id="btn-add-song" class="add-song-btn">+ 添加歌曲</button>
+                    <button type="button" id="btn-add-song" class="add-song-btn">+ 添加歌曲</button>
                 </div>
             `;
             return;
@@ -911,8 +834,8 @@ const MusicPlayerApp = {
                         <div class="item-artist">${song.artist}</div>
                     </div>
                     <div class="item-actions">
-                        <button class="item-btn lyrics-btn" title="歌词">🎵</button>
-                        <button class="item-btn delete-btn" title="删除">×</button>
+                        <button type="button" class="item-btn lyrics-btn" title="歌词">🎵</button>
+                        <button type="button" class="item-btn delete-btn" title="删除">×</button>
                     </div>
                 </div>
             `;
@@ -1004,17 +927,44 @@ const MusicPlayerApp = {
     // ==================== 事件处理 ====================
     bindEvents() {
         // 播放控制按钮
-        this.bindButton('#btn-play', () => this.togglePlay());
-        this.bindButton('#btn-prev', () => this.prev());
-        this.bindButton('#btn-next', () => this.next());
-        this.bindButton('#btn-play-mode', () => this.togglePlayMode());
-        this.bindButton('#btn-playlist', () => this.togglePanel('playlist'));
-        this.bindButton('#btn-settings', () => this.togglePanel('settings'));
-        this.bindButton('#btn-pure-mode', () => this.togglePureMode());
-        this.bindButton('#btn-minimize', () => this.toggleMinimize());
+        this.bindButton('#btn-play', (e) => {
+            e.preventDefault();
+            this.togglePlay();
+        });
+        this.bindButton('#btn-prev', (e) => {
+            e.preventDefault();
+            this.prev();
+        });
+        this.bindButton('#btn-next', (e) => {
+            e.preventDefault();
+            this.next();
+        });
+        this.bindButton('#btn-play-mode', (e) => {
+            e.preventDefault();
+            this.togglePlayMode();
+        });
+        this.bindButton('#btn-playlist', (e) => {
+            e.preventDefault();
+            this.togglePanel('playlist');
+        });
+        this.bindButton('#btn-settings', (e) => {
+            e.preventDefault();
+            this.togglePanel('settings');
+        });
+        this.bindButton('#btn-pure-mode', (e) => {
+            e.preventDefault();
+            this.togglePureMode();
+        });
+        this.bindButton('#btn-minimize', (e) => {
+            e.preventDefault();
+            this.toggleMinimize();
+        });
         
         // 添加歌曲
-        this.bindButton('#btn-add-song', () => this.showAddSongDialog());
+        this.bindButton('#btn-add-song', (e) => {
+            e.preventDefault();
+            this.showAddSongDialog();
+        });
         
         // 进度条
         const progressBar = document.getElementById('progress-bar');
@@ -1026,7 +976,7 @@ const MusicPlayerApp = {
             });
         }
         
-        // 拖拽系统（已修复）
+        // 拖拽系统
         this.initDragSystem();
         
         // 设置面板控制
@@ -1058,11 +1008,18 @@ const MusicPlayerApp = {
         });
         
         // 历史记录
-        this.bindButton('#btn-show-history', () => this.toggleHistoryDropdown());
-        this.bindButton('#btn-close-history', () => this.toggleHistoryDropdown());
+        this.bindButton('#btn-show-history', (e) => {
+            e.preventDefault();
+            this.toggleHistoryDropdown();
+        });
+        this.bindButton('#btn-close-history', (e) => {
+            e.preventDefault();
+            this.toggleHistoryDropdown();
+        });
         
         // 面板关闭按钮
         this.delegateEvent('.player-panel', '.panel-close-btn', 'click', (e, btn) => {
+            e.preventDefault();
             const panel = btn.dataset.panel;
             this.closePanel(panel);
         });
@@ -1092,38 +1049,36 @@ const MusicPlayerApp = {
         }
     },
     
-    // ==================== 拖拽系统（已修复） ====================
+    // ==================== 拖拽系统（优化版） ====================
     initDragSystem() {
-        // 主播放器拖拽
         const dragIsland = document.getElementById('drag-island');
         const playerMain = document.getElementById('player-main');
         
         if (dragIsland && playerMain) {
-            this.setupDraggable(dragIsland, playerMain, 'playerPosition', this.state.isMobile);
+            this.setupDraggable(dragIsland, playerMain, 'playerPosition');
         }
         
-        // 图标拖拽
         const iconDragArea = document.querySelector('.icon-drag-area');
         const playerIcon = document.getElementById('player-icon');
         
         if (iconDragArea && playerIcon) {
-            this.setupDraggable(iconDragArea, playerIcon, 'iconPosition', this.state.isMobile);
+            this.setupDraggable(iconDragArea, playerIcon, 'iconPosition');
         }
         
         // 图标展开区域
         const expandArea = document.querySelector('.icon-expand-area');
         if (expandArea) {
             if (this.state.isMobile) {
-                // 移动端：点击展开
-                expandArea.addEventListener('click', () => {
+                expandArea.addEventListener('click', (e) => {
+                    e.preventDefault();
                     this.state.isMinimized = false;
                     this.updateView();
                     this.saveData();
                 });
             } else {
-                // 桌面端：双击展开
                 let lastClick = 0;
-                expandArea.addEventListener('click', () => {
+                expandArea.addEventListener('click', (e) => {
+                    e.preventDefault();
                     const now = Date.now();
                     if (now - lastClick < 300) {
                         this.state.isMinimized = false;
@@ -1138,7 +1093,7 @@ const MusicPlayerApp = {
         }
     },
     
-    setupDraggable(dragElement, targetElement, positionKey, isMobile) {
+    setupDraggable(dragElement, targetElement, positionKey) {
         let isDragging = false;
         let startX, startY, initialLeft, initialTop;
         
@@ -1164,7 +1119,6 @@ const MusicPlayerApp = {
             let newLeft = initialLeft + deltaX;
             let newTop = initialTop + deltaY;
             
-            // 边界检查
             const maxX = window.innerWidth - targetElement.offsetWidth;
             const maxY = window.innerHeight - targetElement.offsetHeight;
             
@@ -1174,7 +1128,6 @@ const MusicPlayerApp = {
             targetElement.style.left = newLeft + 'px';
             targetElement.style.top = newTop + 'px';
             
-            // 更新状态
             this.state[positionKey] = { x: newLeft, y: newTop };
         };
         
@@ -1199,23 +1152,21 @@ const MusicPlayerApp = {
         document.addEventListener('mouseup', stopDrag);
         
         // 移动端触摸事件
-        if (isMobile) {
-            dragElement.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                const touch = e.touches[0];
-                startDrag(touch.clientX, touch.clientY);
-            }, { passive: false });
-            
-            document.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
-                e.preventDefault();
-                const touch = e.touches[0];
-                doDrag(touch.clientX, touch.clientY);
-            }, { passive: false });
-            
-            document.addEventListener('touchend', stopDrag);
-            document.addEventListener('touchcancel', stopDrag);
-        }
+        dragElement.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            startDrag(touch.clientX, touch.clientY);
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            doDrag(touch.clientX, touch.clientY);
+        }, { passive: false });
+        
+        document.addEventListener('touchend', stopDrag);
+        document.addEventListener('touchcancel', stopDrag);
     },
     
     // ==================== 设置控制 ====================
@@ -1239,10 +1190,10 @@ const MusicPlayerApp = {
         
         // 播放模式
         this.delegateEvent('#panel-settings', '.mode-option', 'click', (e, btn) => {
+            e.preventDefault();
             const mode = parseInt(btn.dataset.mode);
             this.state.playMode = mode;
             
-            // 更新按钮状态
             document.querySelectorAll('.mode-option').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
@@ -1255,9 +1206,8 @@ const MusicPlayerApp = {
         if (sizeSlider) {
             sizeSlider.addEventListener('input', (e) => {
                 const size = parseInt(e.target.value);
-                const unit = this.state.isMobile ? 'vw' : 'px';
-                this.state.settings.playerWidth = size + unit;
-                document.getElementById('size-value').textContent = size + unit;
+                this.state.settings.playerWidth = size + 'px';
+                document.getElementById('size-value').textContent = size + 'px';
                 this.updatePlayerStyle();
             });
             
@@ -1332,14 +1282,13 @@ const MusicPlayerApp = {
         
         // RGB模式
         this.delegateEvent('#panel-settings', '.rgb-option', 'click', (e, btn) => {
+            e.preventDefault();
             const mode = parseInt(btn.dataset.mode);
             this.state.rgbMode = mode;
             
-            // 更新按钮状态
             document.querySelectorAll('.rgb-option').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
-            // 显示/隐藏RGB颜色选择器
             const colorControl = document.getElementById('rgb-color-control');
             if (colorControl) {
                 colorControl.style.display = mode === 1 ? '' : 'none';
@@ -1429,6 +1378,7 @@ const MusicPlayerApp = {
     initDialogs() {
         // 添加歌曲对话框
         this.delegateEvent('#add-song-dialog', '.add-option-btn', 'click', (e, btn) => {
+            e.preventDefault();
             const type = btn.dataset.type;
             this.hideDialog('add-song-dialog');
             
@@ -1447,6 +1397,7 @@ const MusicPlayerApp = {
         
         // 链接导入对话框
         this.delegateEvent('#link-import-dialog', '.link-option-btn', 'click', (e, btn) => {
+            e.preventDefault();
             const type = btn.dataset.type;
             this.hideDialog('link-import-dialog');
             
@@ -1459,6 +1410,7 @@ const MusicPlayerApp = {
         
         // 关闭按钮
         this.delegateEvent('.modal-overlay', '.modal-close', 'click', (e, btn) => {
+            e.preventDefault();
             const dialog = btn.closest('.modal-overlay');
             if (dialog) {
                 dialog.style.display = 'none';
@@ -1507,7 +1459,7 @@ const MusicPlayerApp = {
             
             files.forEach(file => {
                 const url = URL.createObjectURL(file);
-                const title = file.name.replace(/\\.[^/.]+$/, "");
+                const title = file.name.replace(/\.[^/.]+$/, "");
                 
                 this.state.playlist.push({
                     title: title,
@@ -1542,10 +1494,8 @@ const MusicPlayerApp = {
         if (!url) return;
         
         if (url.includes('music.163.com') || url.includes('163cn.tv')) {
-            // 网易云链接
             this.importNeteaseSong(url);
         } else {
-            // 直链
             const title = prompt('请输入歌曲名称:', '未知歌曲');
             const artist = prompt('请输入歌手名称:', '未知艺术家');
             
@@ -1592,7 +1542,6 @@ const MusicPlayerApp = {
             
             const song = data.data;
             
-            // 获取播放链接
             const urlResponse = await fetch(`${apiUrl}/api/music/url`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1607,7 +1556,6 @@ const MusicPlayerApp = {
             const playUrl = urlData.data?.[0]?.url;
             if (!playUrl) throw new Error('无法获取播放链接');
             
-            // 添加到播放列表
             this.state.playlist.push({
                 title: song.name || '未知歌曲',
                 artist: song.singer || '未知艺术家',
@@ -1669,38 +1617,21 @@ const MusicPlayerApp = {
                 throw new Error('歌单为空');
             }
             
-            const importCount = Math.min(playlist.tracks.length, 50); // 限制最多导入50首
+            const importCount = Math.min(playlist.tracks.length, 50);
             let imported = 0;
             
             for (let i = 0; i < importCount; i++) {
                 const track = playlist.tracks[i];
-                const songLink = `music.163.com/song?id=${track.id}`;
                 
-                try {
-                    const songResponse = await fetch(`${apiUrl}/api/music/detail`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: songLink })
-                    });
-                    
-                    if (songResponse.ok) {
-                        const songData = await songResponse.json();
-                        if (songData.code === 200) {
-                            this.state.playlist.push({
-                                title: track.name,
-                                artist: track.artists,
-                                url: '', // 实际播放链接需要单独获取，这里简化处理
-                                cover: track.picUrl || this.config.defaultCover,
-                                isNetease: true
-                            });
-                            imported++;
-                        }
-                    }
-                } catch (e) {
-                    console.warn(`跳过歌曲 ${track.name}:`, e);
-                }
+                this.state.playlist.push({
+                    title: track.name,
+                    artist: track.artists,
+                    url: '',
+                    cover: track.picUrl || this.config.defaultCover,
+                    isNetease: true
+                });
+                imported++;
                 
-                // 更新进度
                 if (i % 5 === 0 || i === importCount - 1) {
                     this.showToast(`已导入 ${i + 1}/${importCount} 首歌曲`, 'info');
                 }
@@ -1768,21 +1699,18 @@ const MusicPlayerApp = {
     },
     
     openPanel(panelName) {
-        // 关闭其他面板
         document.querySelectorAll('.player-panel').forEach(panel => {
             panel.style.display = 'none';
         });
         
-        // 显示目标面板
         const panel = document.getElementById(`panel-${panelName}`);
         if (panel) {
             panel.style.display = 'flex';
             this.state.currentPanel = panelName;
             
-            // 调整播放器高度
             const playerMain = document.getElementById('player-main');
             if (playerMain) {
-                playerMain.style.height = '520px';
+                playerMain.style.height = this.state.isMobile ? '500px' : '520px';
             }
         }
     },
@@ -1793,7 +1721,6 @@ const MusicPlayerApp = {
             panel.style.display = 'none';
             this.state.currentPanel = null;
             
-            // 恢复播放器高度
             const playerMain = document.getElementById('player-main');
             if (playerMain) {
                 playerMain.style.height = this.state.settings.playerHeight;
@@ -1905,12 +1832,10 @@ const MusicPlayerApp = {
     
     bindKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
-            // 忽略输入框中的按键
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
             
-            // Alt + 快捷键
             if (e.altKey) {
                 switch (e.key.toLowerCase()) {
                     case 'p':
@@ -1947,21 +1872,9 @@ const MusicPlayerApp = {
                             this.showToast(`音量: ${Math.round(this.state.audio.volume * 100)}%`);
                         }
                         break;
-                    case '?':
-                        e.preventDefault();
-                        alert(`快捷键帮助：
-Alt + P: 播放/暂停
-Alt + N: 下一首
-Alt + B: 上一首
-Alt + M: 最小化/最大化
-Alt + L: 切换纯享模式
-Alt + ,: 减小音量
-Alt + .: 增加音量`);
-                        break;
                 }
             }
             
-            // 空格键播放/暂停
             if (e.code === 'Space' && !e.altKey) {
                 const activeElement = document.activeElement;
                 if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA' && activeElement.tagName !== 'BUTTON') {
@@ -1974,16 +1887,11 @@ Alt + .: 增加音量`);
     
     // ==================== 清理函数 ====================
     cleanup() {
-        // 暂停音频
         if (this.state.audio) {
             this.state.audio.pause();
             this.state.audio.src = '';
         }
         
-        // 移除事件监听器
-        document.removeEventListener('keydown', this.keyboardHandler);
-        
-        // 清理DOM
         const container = document.getElementById('music-player-container');
         if (container) {
             container.innerHTML = '';
