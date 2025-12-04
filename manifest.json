@@ -4,6 +4,9 @@
   "author": "17-cm",
   "homePage": "https://github.com/17-cm/HY-audio-player",
   "js": "extension.js",
+  "css": "style.css",
   "auto_update": true,
+  "requires": [],
+  "optional": [],
   "loading_order": 999
 }
