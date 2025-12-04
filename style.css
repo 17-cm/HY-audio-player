@@ -1,5 +1,5 @@
-/* 音乐播放器扩展样式 */
-/* 版本: 1.0.0 - 移动端优先设计 */
+/* HY Audio Player - 合并样式文件 */
+/* 版本: 1.0.0 */
 
 :root {
     --primary-color: #00d2ff;
@@ -1233,6 +1233,16 @@ input:checked + .slider:before {
     box-shadow: 0 5px 20px rgba(255, 85, 85, 0.3);
 }
 
+.status-toast.info {
+    background: var(--primary-color);
+    color: #000;
+}
+
+.status-toast.success {
+    background: #50fa7b;
+    color: #000;
+}
+
 /* ==================== 滚动条样式 ==================== */
 ::-webkit-scrollbar {
     width: 6px;
@@ -1281,5 +1291,21 @@ input:checked + .slider:before {
 @media print {
     #music-player-container {
         display: none !important;
+    }
+}
+
+/* ==================== icon.css 内容（主题适配） ==================== */
+
+/* 浅色主题：黑色图标 */
+@media (prefers-color-scheme: light) {
+    .music-icon {
+        filter: invert(0);
+    }
+}
+
+/* 深色主题：白色图标 */
+@media (prefers-color-scheme: dark) {
+    .music-icon {
+        filter: invert(1);
     }
 }
