@@ -500,20 +500,91 @@
         showAddOptions() {
             const overlay = document.createElement('div');
             overlay.className = 'dialog-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 2147483647;
+                padding: 20px;
+                box-sizing: border-box;
+                overflow: auto;
+            `;
+            
             overlay.innerHTML = `
-                <div class="add-dialog">
-                    <div class="dialog-title">添加歌曲</div>
-                    <div class="add-options">
-                        <button type="button" id="add-single-btn" class="add-option-btn">
-                            <div class="option-icon">🎵</div>
-                            <div class="option-text">添加单曲</div>
+                <div class="add-dialog" style="
+                    background: #2a2a2a;
+                    border-radius: 16px;
+                    padding: 25px;
+                    max-width: 90%;
+                    width: 400px;
+                    max-height: 85vh;
+                    overflow-y: auto;
+                    text-align: center;
+                    color: #fff;
+                    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+                    margin: auto;
+                ">
+                    <div class="dialog-title" style="
+                        font-size: 16px;
+                        font-weight: bold;
+                        margin-bottom: 15px;
+                    ">添加歌曲</div>
+                    <div class="add-options" style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 15px;
+                        margin: 20px 0;
+                    ">
+                        <button type="button" id="add-single-btn" class="add-option-btn" style="
+                            background: rgba(255,255,255,0.1);
+                            border: 2px solid rgba(255,255,255,0.2);
+                            border-radius: 12px;
+                            padding: 20px;
+                            cursor: pointer;
+                            transition: all 0.3s;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 10px;
+                            color: inherit;
+                        ">
+                            <div class="option-icon" style="font-size: 32px; line-height: 1;">🎵</div>
+                            <div class="option-text" style="font-size: 16px; font-weight: bold;">添加单曲</div>
                         </button>
-                        <button type="button" id="add-playlist-btn" class="add-option-btn">
-                            <div class="option-icon">📋</div>
-                            <div class="option-text">添加歌单</div>
+                        <button type="button" id="add-playlist-btn" class="add-option-btn" style="
+                            background: rgba(255,255,255,0.1);
+                            border: 2px solid rgba(255,255,255,0.2);
+                            border-radius: 12px;
+                            padding: 20px;
+                            cursor: pointer;
+                            transition: all 0.3s;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 10px;
+                            color: inherit;
+                        ">
+                            <div class="option-icon" style="font-size: 32px; line-height: 1;">📋</div>
+                            <div class="option-text" style="font-size: 16px; font-weight: bold;">添加歌单</div>
                         </button>
                     </div>
-                    <button type="button" id="add-cancel-btn" class="dialog-cancel">取消</button>
+                    <button type="button" id="add-cancel-btn" class="dialog-cancel" style="
+                        background: transparent;
+                        border: 1px solid rgba(255,255,255,0.3);
+                        color: #fff;
+                        padding: 8px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 12px;
+                    ">取消</button>
                 </div>
             `;
             document.body.appendChild(overlay);
@@ -869,14 +940,77 @@
         showLyricsDialog(i) {
             const overlay = document.createElement('div');
             overlay.className = 'dialog-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 2147483647;
+                padding: 20px;
+                box-sizing: border-box;
+                overflow: auto;
+            `;
+            
             overlay.innerHTML = `
-                <div class="lyrics-dialog">
-                    <div class="dialog-title">歌词设置</div>
-                    <div class="lyrics-btns">
-                        <button type="button" id="lyrics-paste-btn" class="dialog-btn">粘贴歌词</button>
-                        <button type="button" id="lyrics-import-btn" class="dialog-btn">导入文件</button>
+                <div class="lyrics-dialog" style="
+                    background: #2a2a2a;
+                    border-radius: 16px;
+                    padding: 25px;
+                    max-width: 90%;
+                    width: 400px;
+                    max-height: 85vh;
+                    overflow-y: auto;
+                    text-align: center;
+                    color: #fff;
+                    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+                    margin: auto;
+                ">
+                    <div class="dialog-title" style="
+                        font-size: 16px;
+                        font-weight: bold;
+                        margin-bottom: 15px;
+                    ">歌词设置</div>
+                    <div class="lyrics-btns" style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                        margin-bottom: 15px;
+                    ">
+                        <button type="button" id="lyrics-paste-btn" class="dialog-btn" style="
+                            padding: 12px 20px;
+                            border: none;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                            background: #00d2ff;
+                            color: #000;
+                        ">粘贴歌词</button>
+                        <button type="button" id="lyrics-import-btn" class="dialog-btn" style="
+                            padding: 12px 20px;
+                            border: none;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                            background: #00d2ff;
+                            color: #000;
+                        ">导入文件</button>
                     </div>
-                    <button type="button" id="lyrics-cancel-btn" class="dialog-cancel">取消</button>
+                    <button type="button" id="lyrics-cancel-btn" class="dialog-cancel" style="
+                        background: transparent;
+                        border: 1px solid rgba(255,255,255,0.3);
+                        color: #fff;
+                        padding: 8px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 12px;
+                    ">取消</button>
                 </div>
             `;
             document.body.appendChild(overlay);
