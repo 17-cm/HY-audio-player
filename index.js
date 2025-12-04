@@ -83,104 +83,59 @@
     }
     
     function showHelp() {
-        // 注入帮助弹窗样式（确保z-index最高）
-        if (!document.getElementById('help-dialog-style')) {
-            const style = document.createElement('style');
-            style.id = 'help-dialog-style';
-            style.textContent = `
-                .help-dialog-overlay {
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    right: 0 !important;
-                    bottom: 0 !important;
-                    background: rgba(0, 0, 0, 0.8) !important;
-                    display: flex !important;
-                    justify-content: center !important;
-                    align-items: center !important;
-                    z-index: 2147483647 !important;
-                    padding: 20px !important;
-                    box-sizing: border-box !important;
-                    overflow: auto !important;
-                }
-                
-                .help-dialog {
-                    background: var(--SmartThemeBodyColor, #222) !important;
-                    color: var(--SmartThemeBodyText, #fff) !important;
-                    border-radius: 15px !important;
-                    padding: 25px !important;
-                    max-width: 90% !important;
-                    width: 500px !important;
-                    max-height: 85vh !important;
-                    overflow-y: auto !important;
-                    position: relative !important;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.5) !important;
-                    margin: auto !important;
-                    z-index: 2147483647 !important;
-                }
-                
-                .help-dialog h2 {
-                    margin-top: 0;
-                    font-size: 20px;
-                    border-bottom: 1px solid rgba(255,255,255,0.1);
-                    padding-bottom: 10px;
-                }
-                
-                .help-dialog h3 {
-                    font-size: 16px;
-                    margin: 20px 0 10px 0;
-                    color: #7eb8c9;
-                }
-                
-                .help-dialog ul {
-                    padding-left: 20px;
-                    margin: 10px 0;
-                }
-                
-                .help-dialog li {
-                    margin: 8px 0;
-                    line-height: 1.5;
-                }
-                
-                .help-dialog li ul {
-                    margin-top: 5px;
-                }
-                
-                .help-close-btn {
-                    position: absolute !important;
-                    top: 10px !important;
-                    right: 10px !important;
-                    background: none !important;
-                    border: none !important;
-                    font-size: 24px !important;
-                    cursor: pointer !important;
-                    color: inherit !important;
-                    opacity: 0.7 !important;
-                    width: 30px !important;
-                    height: 30px !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    border-radius: 50% !important;
-                    transition: all 0.2s !important;
-                }
-                
-                .help-close-btn:hover {
-                    opacity: 1 !important;
-                    background: rgba(255,255,255,0.1) !important;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-        
         const overlay = document.createElement('div');
         overlay.className = 'help-dialog-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2147483647;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: auto;
+        `;
         
         overlay.innerHTML = `
-            <div class="help-dialog">
-                <button type="button" class="help-close-btn">×</button>
+            <div class="help-dialog" style="
+                background: var(--SmartThemeBodyColor, #222);
+                color: var(--SmartThemeBodyText, #fff);
+                border-radius: 15px;
+                padding: 25px;
+                max-width: 90%;
+                width: 500px;
+                max-height: 85vh;
+                overflow-y: auto;
+                position: relative;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                margin: auto;
+                z-index: 2147483647;
+            ">
+                <button type="button" id="help-close-btn" style="
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background: none;
+                    border: none;
+                    font-size: 24px;
+                    cursor: pointer;
+                    color: inherit;
+                    opacity: 0.7;
+                    width: 30px;
+                    height: 30px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    transition: all 0.2s;
+                ">×</button>
                 
-                <h2>🎵 音乐播放器使用说明</h2>
+                <h2 style="margin-top: 0;">🎵 音乐播放器使用说明</h2>
                 
                 <h3>💻 电脑端操作</h3>
                 <ul>
@@ -189,6 +144,9 @@
                     <li><strong>添加歌曲</strong>：支持本地文件、直链、网易云链接</li>
                     <li><strong>快捷键</strong>：
                         <ul>
+                            <li>Alt + P：播放/暂停</li>
+                            <li>Alt + N：下一首</li>
+                            <li>Alt + B：上一首</li>
                             <li>空格：播放/暂停</li>
                         </ul>
                     </li>
@@ -198,7 +156,7 @@
                 <ul>
                     <li><strong>拖动播放器</strong>：长按顶部灵动岛拖动</li>
                     <li><strong>切换模式</strong>：点击右侧按钮</li>
-                    <li><strong>律动模式</strong>：左侧拖动，右侧双击展开</li>
+                    <li><strong>律动模式</strong>：左侧拖动，右侧点击展开</li>
                     <li><strong>添加歌曲</strong>：点击"+"按钮</li>
                 </ul>
                 
@@ -210,19 +168,11 @@
                     <li><strong>纯享模式</strong>：全屏歌词显示</li>
                 </ul>
                 
-                <h3>✨ RGB 模式</h3>
-                <ul>
-                    <li><strong>关闭</strong>：纯色边框</li>
-                    <li><strong>单色</strong>：渐变流动 + 呼吸闪烁效果</li>
-                    <li><strong>幻彩</strong>：多色随机流动 + 呼吸效果</li>
-                </ul>
-                
                 <h3>☁️ 网易云音乐</h3>
                 <ul>
                     <li>支持歌曲直链导入</li>
                     <li>支持歌单批量导入</li>
                     <li>自动获取歌词和封面</li>
-                    <li>⚠️ 注意：网易云链接是临时的，可能过期</li>
                 </ul>
                 
                 <p style="text-align: center; margin-top: 20px; opacity: 0.7;">
@@ -233,35 +183,32 @@
         
         document.body.appendChild(overlay);
         
-        // 关闭按钮事件
-        const closeBtn = overlay.querySelector('.help-close-btn');
+        const closeBtn = overlay.querySelector('#help-close-btn');
+        closeBtn.addEventListener('mouseenter', function() {
+            this.style.opacity = '1';
+            this.style.background = 'rgba(255,255,255,0.1)';
+        });
+        closeBtn.addEventListener('mouseleave', function() {
+            this.style.opacity = '0.7';
+            this.style.background = 'none';
+        });
         closeBtn.addEventListener('click', () => {
             overlay.remove();
         });
         
-        // 点击遮罩关闭
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 overlay.remove();
             }
         });
-        
-        // ESC键关闭
-        const handleEsc = (e) => {
-            if (e.key === 'Escape') {
-                overlay.remove();
-                document.removeEventListener('keydown', handleEsc);
-            }
-        };
-        document.addEventListener('keydown', handleEsc);
     }
     
     function bindExtensionEvents() {
-        // 隐藏播放器开关
         const hiddenToggle = document.getElementById('player-hidden-toggle');
         if (hiddenToggle) {
             hiddenToggle.addEventListener('change', (e) => {
                 ExtensionState.playerHidden = e.target.checked;
+                saveExtensionSettings();
                 
                 if (window.MusicPlayerApp) {
                     if (ExtensionState.playerHidden) {
@@ -270,18 +217,14 @@
                         window.MusicPlayerApp.showUI();
                     }
                 }
-                
-                saveExtensionSettings();
             });
         }
         
-        // 帮助按钮
         const helpBtn = document.getElementById('show-help-btn');
         if (helpBtn) {
             helpBtn.addEventListener('click', showHelp);
         }
         
-        // 抽屉展开/收起
         const drawerToggle = document.querySelector('#music-player-extension .inline-drawer-toggle');
         if (drawerToggle) {
             drawerToggle.addEventListener('click', function(e) {
@@ -315,7 +258,6 @@
         script.onload = () => {
             console.log('✅ 播放器核心加载完成');
             
-            // 应用隐藏状态
             setTimeout(() => {
                 if (window.MusicPlayerApp) {
                     if (ExtensionState.playerHidden) {
@@ -332,7 +274,6 @@
         document.head.appendChild(script);
     }
     
-    // 页面卸载时清理
     window.addEventListener('beforeunload', function() {
         const extensionElement = document.getElementById('music-player-extension');
         if (extensionElement) {
