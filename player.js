@@ -1524,6 +1524,17 @@
 
         // 显示UI
         showUI() {
+            const root = document.getElementById('player-root');
+            const rhythmIcon = document.getElementById('player-rhythm-icon');
+            
+            if (this.state.isRhythmMode) {
+                if (root) root.style.display = 'none';
+                if (rhythmIcon) rhythmIcon.style.display = 'flex';
+            } else {
+                if (root) root.style.display = 'flex';
+                if (rhythmIcon) rhythmIcon.style.display = 'none';
+            }
+            
             this.updateView();
         }
 
