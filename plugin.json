@@ -1,0 +1,7 @@
+{
+  "display_name": "HY Audio Player",
+  "version": "1.0.0",
+  "author": "17-cm",
+  "js": "plugin.js",
+  "auto_update": true
+}
