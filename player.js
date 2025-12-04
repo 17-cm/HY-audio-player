@@ -1,6 +1,6 @@
 /*
  * 音乐播放器核心逻辑
- * 版本: 1.0.2
+ * 版本: 1.0.3
  * 作者: hy.禾一
  */
 
@@ -17,12 +17,12 @@
         borderColor: '#333333',
         borderWidth: '6px',
         themeColor: '#ffffff',
-        rgbColor: '#00d2ff',
+        rgbColor: '#7eb8c9',
         glassAlpha: 0.6,
         playerWidth: '400px',
         playerHeight: '180px',
-        lyricsGradientStart: '#00d2ff',
-        lyricsGradientEnd: '#ff00ff',
+        lyricsGradientStart: '#7eb8c9',
+        lyricsGradientEnd: '#c9a7eb',
         pos: { x: 20, y: 100 }
     };
 
@@ -32,8 +32,8 @@
         index: -1,
         audio: new Audio(),
         state: {
-            playMode: 0, // 0:列表顺序 1:单曲循环 2:列表随机
-            rgbMode: 0, // 0:关闭 1:单色 2:幻彩
+            playMode: 0,
+            rgbMode: 0,
             glass: true,
             glassOpacity: 0.6,
             speed: 1.0,
@@ -50,7 +50,6 @@
         },
         drag: { active: false, offX: 0, offY: 0 },
 
-        // 初始化
         init() {
             this.injectCSS();
             this.createUI();
@@ -59,7 +58,6 @@
             console.log('🎵 播放器核心初始化完成');
         },
 
-        // 加载数据
         loadData() {
             const raw = localStorage.getItem('music_player_data');
             if (raw) {
@@ -82,7 +80,6 @@
             this.renderList();
         },
 
-        // 保存数据
         saveData() {
             localStorage.setItem('music_player_data', JSON.stringify({
                 playlist: this.playlist,
@@ -90,7 +87,6 @@
             }));
         },
 
-        // 显示状态提示
         showStatus(message, type = 'info', duration = 3000) {
             const statusEl = document.getElementById('player-status');
             if (statusEl) {
@@ -105,7 +101,6 @@
             }
         },
 
-        // 添加导入历史
         addImportHistory(type, data) {
             const history = {
                 type: type,
@@ -119,7 +114,6 @@
             this.saveData();
         },
 
-        // 文件上传处理
         handleFileUpload(file, callback) {
             const reader = new FileReader();
             reader.onload = (e) => callback(e.target.result);
@@ -144,8 +138,36 @@
             document.body.appendChild(input);
             input.click();
         },
+
+        hexToHSL(hex) {
+            let r = 0, g = 0, b = 0;
+            if (hex.length === 4) {
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length === 7) {
+                r = parseInt(hex.slice(1, 3), 16);
+                g = parseInt(hex.slice(3, 5), 16);
+                b = parseInt(hex.slice(5, 7), 16);
+            }
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0;
+            } else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                    case g: h = ((b - r) / d + 2) / 6; break;
+                    case b: h = ((r - g) / d + 4) / 6; break;
+                }
+            }
+            return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+        },
         
-        // 更新视图
         updateView() {
             const root = document.getElementById('player-root');
             const rootRgb = document.getElementById('player-rgb-border');
@@ -155,13 +177,11 @@
 
             if (!root || !inner || !rhythmIcon) return;
 
-            // 位置设置
             root.style.left = this.state.playerPos.x + 'px';
             root.style.top = this.state.playerPos.y + 'px';
             rhythmIcon.style.left = this.state.rhythmIconPos.x + 'px';
             rhythmIcon.style.top = this.state.rhythmIconPos.y + 'px';
 
-            // 样式变量
             root.style.setProperty('--border-w', cfg.borderWidth);
             root.style.setProperty('--rgb-single', cfg.rgbColor);
             root.style.setProperty('--player-h', cfg.playerHeight);
@@ -171,23 +191,20 @@
             root.style.width = cfg.playerWidth;
             rhythmIcon.style.setProperty('--rgb-single', cfg.rgbColor);
 
-            // 灵动岛颜色同步（包括RGB效果）
             const island = document.getElementById('player-island');
             if (island) {
-                island.style.background = cfg.borderColor;
-                
-                // 同步RGB效果
                 island.className = 'player-island';
                 const mode = this.state.rgbMode;
-                if (mode === 1) {
-                    island.classList.add('rgb-single');
+                if (mode === 0) {
+                    island.style.background = cfg.borderColor;
+                } else if (mode === 1) {
+                    island.classList.add('rgb-single-flow');
                     island.style.setProperty('--rgb-single', cfg.rgbColor);
                 } else if (mode === 2) {
-                    island.classList.add('rgb-rainbow');
+                    island.classList.add('rgb-rainbow-flow');
                 }
             }
 
-            // 背景颜色处理
             const hexToRgba = (hex, alpha) => {
                 let r=0, g=0, b=0;
                 if(hex.length === 4){
@@ -204,7 +221,6 @@
 
             let currentBg = this.state.panel ? cfg.expandedBg : cfg.collapsedBg;
 
-            // 磨砂玻璃效果
             if (this.state.glass) {
                 inner.classList.add('glass-mode');
                 if (currentBg.startsWith('#')) {
@@ -223,7 +239,6 @@
                 inner.style.backdropFilter = 'none';
             }
 
-            // 封面设置
             const coverEl = document.getElementById('player-cover');
             if (coverEl) {
                 coverEl.style.backgroundImage = `url("${cfg.cover}")`;
@@ -231,23 +246,23 @@
                 coverEl.style.height = cfg.coverHeight + 'px';
             }
 
-            // RGB边框效果
             if (rootRgb) {
                 rootRgb.className = 'player-rgb-border';
-                rootRgb.style.background = cfg.borderColor;
-                
                 const mode = this.state.rgbMode;
-                if (mode === 1) rootRgb.classList.add('mode-single');
-                else if (mode === 2) rootRgb.classList.add('mode-rainbow');
+                if (mode === 0) {
+                    rootRgb.style.background = cfg.borderColor;
+                } else if (mode === 1) {
+                    rootRgb.classList.add('mode-single');
+                } else if (mode === 2) {
+                    rootRgb.classList.add('mode-rainbow');
+                }
             }
 
-            // 律动图标RGB效果
             rhythmIcon.className = 'player-rhythm-icon';
             if (this.state.isPlaying) rhythmIcon.classList.add('playing');
             if (this.state.rgbMode === 1) rhythmIcon.classList.add('rgb-single');
             if (this.state.rgbMode === 2) rhythmIcon.classList.add('rgb-rainbow');
 
-            // 显示/隐藏模式
             if (this.state.isRhythmMode) {
                 root.style.display = 'none';
                 rhythmIcon.style.display = 'flex';
@@ -256,11 +271,9 @@
                 rhythmIcon.style.display = 'none';
             }
 
-            // 纯享模式
             root.classList.toggle('pure-mode', this.state.isPureMode);
             this.updatePureLyrics();
 
-            // 播放模式按钮
             const modeBtn = document.getElementById('btn-play-mode');
             if (modeBtn) {
                 const svgs = [
@@ -271,7 +284,6 @@
                 modeBtn.innerHTML = svgs[this.state.playMode];
             }
 
-            // 歌曲信息
             const t = this.playlist[this.index];
             const titleEl = document.getElementById('player-title');
             const artistEl = document.getElementById('player-artist');
@@ -282,7 +294,6 @@
             this.updateSettingsPanel();
         },
 
-        // 更新设置面板
         updateSettingsPanel() {
             const cfg = this.state.cfg;
             
@@ -328,14 +339,12 @@
             setValue('inp-cover-h', cfg.coverHeight);
             setText('val-cover-h', cfg.coverHeight + 'px');
 
-            // RGB选项
             const rgbOpts = document.querySelectorAll('.rgb-opt');
             rgbOpts.forEach(opt => {
                 opt.classList.toggle('active', parseInt(opt.dataset.val) === this.state.rgbMode);
             });
         },
         
-        // 更新纯享模式歌词
         updatePureLyrics() {
             const container = document.getElementById('pure-lyrics-container');
             if (!container) return;
@@ -375,7 +384,6 @@
             }
         },
 
-        // 渲染纯享歌词
         renderPureLyrics(currentIndex) {
             const container = document.getElementById('pure-lyrics-container');
             if (!container) return;
@@ -400,7 +408,6 @@
             }
         },
 
-        // 播放控制
         play(i) {
             if (!this.playlist[i]) return;
             this.index = i;
@@ -435,7 +442,6 @@
             this.play(n);
         },
 
-        // 面板切换
         togglePanel(type) {
             const root = document.getElementById('player-root');
             const p1 = document.getElementById('panel-settings');
@@ -460,7 +466,6 @@
             this.updateView();
         },
 
-        // 切换纯享模式
         togglePureMode() {
             this.state.isPureMode = !this.state.isPureMode;
             this.state.currentLyricIndex = -1;
@@ -468,11 +473,10 @@
             this.saveData();
         },
 
-        // 歌词解析
         parseLyrics(lrc) {
             const lines = lrc.split('\n');
             const result = [];
-            const regex = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/;
+            const regex = /$$(\d{2}):(\d{2})\.(\d{2,3})$$(.*)/;
             for (const line of lines) {
                 const match = line.match(regex);
                 if (match) {
@@ -484,7 +488,6 @@
             return result.sort((a, b) => a.time - b.time);
         },
 
-        // 链接识别
         isNeteaseLink(url) {
             return url.includes('music.163.com') || 
                    url.includes('163cn.tv') || 
@@ -495,95 +498,24 @@
             return url.includes('playlist') || url.includes('playlist?id=');
         },
 
-        // 显示添加选项
         showAddOptions() {
             const overlay = document.createElement('div');
-            overlay.className = 'dialog-overlay';
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.7);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 2147483647;
-                padding: 20px;
-                box-sizing: border-box;
-                overflow: auto;
-            `;
+            overlay.className = 'player-dialog-overlay';
             
             overlay.innerHTML = `
-                <div class="add-dialog" style="
-                    background: #2a2a2a;
-                    border-radius: 16px;
-                    padding: 25px;
-                    max-width: 90%;
-                    width: 400px;
-                    max-height: 85vh;
-                    overflow-y: auto;
-                    text-align: center;
-                    color: #fff;
-                    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-                    margin: auto;
-                ">
-                    <div class="dialog-title" style="
-                        font-size: 16px;
-                        font-weight: bold;
-                        margin-bottom: 15px;
-                    ">添加歌曲</div>
-                    <div class="add-options" style="
-                        display: flex;
-                        flex-direction: column;
-                        gap: 15px;
-                        margin: 20px 0;
-                    ">
-                        <button type="button" id="add-single-btn" class="add-option-btn" style="
-                            background: rgba(255,255,255,0.1);
-                            border: 2px solid rgba(255,255,255,0.2);
-                            border-radius: 12px;
-                            padding: 20px;
-                            cursor: pointer;
-                            transition: all 0.3s;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            gap: 10px;
-                            color: inherit;
-                        ">
-                            <div class="option-icon" style="font-size: 32px; line-height: 1;">🎵</div>
-                            <div class="option-text" style="font-size: 16px; font-weight: bold;">添加单曲</div>
+                <div class="player-dialog">
+                    <div class="dialog-title">添加歌曲</div>
+                    <div class="add-options">
+                        <button type="button" id="add-single-btn" class="add-option-btn">
+                            <div class="option-icon">🎵</div>
+                            <div class="option-text">添加单曲</div>
                         </button>
-                        <button type="button" id="add-playlist-btn" class="add-option-btn" style="
-                            background: rgba(255,255,255,0.1);
-                            border: 2px solid rgba(255,255,255,0.2);
-                            border-radius: 12px;
-                            padding: 20px;
-                            cursor: pointer;
-                            transition: all 0.3s;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            gap: 10px;
-                            color: inherit;
-                        ">
-                            <div class="option-icon" style="font-size: 32px; line-height: 1;">📋</div>
-                            <div class="option-text" style="font-size: 16px; font-weight: bold;">添加歌单</div>
+                        <button type="button" id="add-playlist-btn" class="add-option-btn">
+                            <div class="option-icon">📋</div>
+                            <div class="option-text">添加歌单</div>
                         </button>
                     </div>
-                    <button type="button" id="add-cancel-btn" class="dialog-cancel" style="
-                        background: transparent;
-                        border: 1px solid rgba(255,255,255,0.3);
-                        color: #fff;
-                        padding: 8px 20px;
-                        border-radius: 6px;
-                        cursor: pointer;
-                        font-size: 12px;
-                    ">取消</button>
+                    <button type="button" id="add-cancel-btn" class="dialog-cancel">取消</button>
                 </div>
             `;
             document.body.appendChild(overlay);
@@ -607,7 +539,6 @@
             };
         },
 
-        // 网易云歌曲信息获取
         async fetchNeteaseSongInfo(link) {
             try {
                 this.showStatus('正在解析链接...', 'info');
@@ -688,7 +619,6 @@
             }
         },
 
-        // 添加单曲
         addUrlSong() {
             const input = prompt('请输入网易云歌曲链接：\n支持格式：\n• music.163.com/song?id=xxx\n• y.music.163.com/m/song/xxx\n• 163cn.tv/xxx（短链接）');
             if (!input) return;
@@ -744,7 +674,6 @@
                 });
         },
 
-        // 网易云歌单获取
         async fetchNeteasePlaylist(link) {
             try {
                 this.showStatus('正在解析歌单...', 'info');
@@ -775,7 +704,6 @@
             }
         },
 
-        // 添加歌单
         async addPlaylist() {
             const input = prompt('请输入网易云歌单链接：\n支持格式：\n• music.163.com/playlist?id=xxx\n• y.music.163.com/m/playlist?id=xxx');
             if (!input) return;
@@ -794,7 +722,6 @@
                 }
                 
                 const confirmed = confirm(`发现歌单: ${playlist.name}\n创建者: ${playlist.creator}\n共 ${playlist.tracks.length} 首歌曲\n\n是否全部添加到播放列表？`);
-                
                 if (!confirmed) return;
                 
                 this.showStatus(`正在导入 ${playlist.tracks.length} 首歌曲...`, 'info');
@@ -856,7 +783,6 @@
             }
         },
 
-        // 渲染导入历史
         renderImportHistory() {
             const container = document.getElementById('history-list');
             if (!container) return;
@@ -898,7 +824,6 @@
             container.innerHTML = html;
         },
 
-        // 更新歌词显示
         updateLyrics() {
             if (!this.state.lyrics.length) {
                 const lyricsEl = document.getElementById('player-lyrics');
@@ -922,7 +847,6 @@
             }
         },
 
-        // 删除歌曲
         delSong(i) {
             if (!confirm('删除?')) return;
             this.playlist.splice(i, 1);
@@ -935,81 +859,18 @@
             }
         },
 
-        // 歌词设置对话框
         showLyricsDialog(i) {
             const overlay = document.createElement('div');
-            overlay.className = 'dialog-overlay';
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0, 0, 0, 0.7);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 2147483647;
-                padding: 20px;
-                box-sizing: border-box;
-                overflow: auto;
-            `;
+            overlay.className = 'player-dialog-overlay';
             
             overlay.innerHTML = `
-                <div class="lyrics-dialog" style="
-                    background: #2a2a2a;
-                    border-radius: 16px;
-                    padding: 25px;
-                    max-width: 90%;
-                    width: 400px;
-                    max-height: 85vh;
-                    overflow-y: auto;
-                    text-align: center;
-                    color: #fff;
-                    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-                    margin: auto;
-                ">
-                    <div class="dialog-title" style="
-                        font-size: 16px;
-                        font-weight: bold;
-                        margin-bottom: 15px;
-                    ">歌词设置</div>
-                    <div class="lyrics-btns" style="
-                        display: flex;
-                        flex-direction: column;
-                        gap: 10px;
-                        margin-bottom: 15px;
-                    ">
-                        <button type="button" id="lyrics-paste-btn" class="dialog-btn" style="
-                            padding: 12px 20px;
-                            border: none;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            transition: all 0.2s;
-                            background: #00d2ff;
-                            color: #000;
-                        ">粘贴歌词</button>
-                        <button type="button" id="lyrics-import-btn" class="dialog-btn" style="
-                            padding: 12px 20px;
-                            border: none;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            transition: all 0.2s;
-                            background: #00d2ff;
-                            color: #000;
-                        ">导入文件</button>
+                <div class="player-dialog">
+                    <div class="dialog-title">歌词设置</div>
+                    <div class="lyrics-btns">
+                        <button type="button" id="lyrics-paste-btn" class="dialog-btn">粘贴歌词</button>
+                        <button type="button" id="lyrics-import-btn" class="dialog-btn">导入文件</button>
                     </div>
-                    <button type="button" id="lyrics-cancel-btn" class="dialog-cancel" style="
-                        background: transparent;
-                        border: 1px solid rgba(255,255,255,0.3);
-                        color: #fff;
-                        padding: 8px 20px;
-                        border-radius: 6px;
-                        cursor: pointer;
-                        font-size: 12px;
-                    ">取消</button>
+                    <button type="button" id="lyrics-cancel-btn" class="dialog-cancel">取消</button>
                 </div>
             `;
             document.body.appendChild(overlay);
@@ -1052,7 +913,6 @@
             };
         },
 
-        // 渲染播放列表
         renderList() {
             const list = document.getElementById('list-box');
             if (!list) return;
@@ -1075,7 +935,6 @@
             });
         },
 
-        // 绑定事件
         bindEvents() {
             const root = document.getElementById('player-root');
             const rhythmIcon = document.getElementById('player-rhythm-icon');
@@ -1083,7 +942,6 @@
             const leftZone = rhythmIcon.querySelector('.rhythm-left-zone');
             const rightZone = rhythmIcon.querySelector('.rhythm-right-zone');
 
-            // 播放器拖拽
             const handlePlayerDrag = (e) => {
                 e.preventDefault();
                 this.drag.active = true;
@@ -1124,7 +982,6 @@
                 island.addEventListener('touchstart', handlePlayerDrag);
             }
 
-            // 律动图标拖拽
             const handleRhythmDrag = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1166,7 +1023,6 @@
                 leftZone.addEventListener('touchstart', handleRhythmDrag);
             }
 
-            // 律动图标右侧双击展开
             if (rightZone) {
                 let lastClickTime = 0;
                 const handleRightClick = (e) => {
@@ -1190,7 +1046,6 @@
                 });
             }
 
-            // 按钮事件
             const click = (id, fn) => {
                 const el = document.getElementById(id);
                 if (el) el.onclick = (e) => { e.stopPropagation(); fn(e); };
@@ -1208,7 +1063,6 @@
             click('btn-pure', () => this.togglePureMode());
             click('player-pure-mode', () => this.togglePureMode());
 
-            // 封面上传
             click('btn-cover-upload', () => {
                 this.createFileInput('image/*', (file) => {
                     this.handleFileUpload(file, (dataUrl) => {
@@ -1219,7 +1073,6 @@
                 });
             });
 
-            // 背景上传
             click('btn-expanded-upload', () => {
                 this.createFileInput('image/*', (file) => {
                     this.handleFileUpload(file, (dataUrl) => {
@@ -1240,7 +1093,6 @@
                 });
             });
 
-            // 颜色选择
             const bgColorChange = (id, key) => {
                 const el = document.getElementById(id);
                 if (el) {
@@ -1266,7 +1118,6 @@
             change('inp-lyrics-start', v => { this.state.cfg.lyricsGradientStart = v; this.updateView(); });
             change('inp-lyrics-end', v => { this.state.cfg.lyricsGradientEnd = v; this.updateView(); });
 
-            // RGB选项
             document.querySelectorAll('.rgb-opt').forEach(opt => {
                 opt.onclick = () => {
                     this.state.rgbMode = parseInt(opt.dataset.val);
@@ -1275,7 +1126,6 @@
                 };
             });
 
-            // 磨砂玻璃开关
             const glassToggle = document.getElementById('sw-glass');
             if (glassToggle) {
                 glassToggle.onchange = (e) => { 
@@ -1285,7 +1135,6 @@
                 };
             }
 
-            // 磨砂玻璃透明度
             const glassOpacityInput = document.getElementById('inp-glass-opacity');
             if (glassOpacityInput) {
                 glassOpacityInput.oninput = (e) => {
@@ -1295,7 +1144,6 @@
                 glassOpacityInput.onchange = () => this.saveData();
             }
 
-            // 播放速度
             const speedInput = document.getElementById('inp-speed');
             if (speedInput) {
                 speedInput.oninput = (e) => {
@@ -1306,7 +1154,6 @@
                 speedInput.onchange = () => this.saveData();
             }
 
-            // 边框宽度
             const borderWidthInput = document.getElementById('inp-width');
             if (borderWidthInput) {
                 borderWidthInput.oninput = (e) => {
@@ -1316,7 +1163,6 @@
                 borderWidthInput.onchange = () => this.saveData();
             }
 
-            // 播放器尺寸
             const playerWidthInput = document.getElementById('inp-width-player');
             if (playerWidthInput) {
                 playerWidthInput.oninput = (e) => {
@@ -1335,7 +1181,6 @@
                 playerHeightInput.onchange = () => this.saveData();
             }
 
-            // 封面尺寸
             const coverWInput = document.getElementById('inp-cover-w');
             if (coverWInput) {
                 coverWInput.oninput = (e) => {
@@ -1354,7 +1199,6 @@
                 coverHInput.onchange = () => this.saveData();
             }
 
-            // 进度条
             const progInput = document.getElementById('inp-prog');
             if (progInput) {
                 progInput.oninput = (e) => {
@@ -1362,7 +1206,6 @@
                 };
             }
 
-            // 音频事件
             this.audio.onplay = () => {
                 this.state.isPlaying = true;
                 const playBtn = document.getElementById('btn-play');
@@ -1395,30 +1238,13 @@
             };
         },
 
-        // 创建UI
         createUI() {
-            // 创建状态提示元素
             const statusEl = document.createElement('div');
             statusEl.id = 'player-status';
-            statusEl.style.cssText = `
-                position: fixed;
-                top: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #00d2ff;
-                color: white;
-                padding: 10px 20px;
-                border-radius: 20px;
-                z-index: 10001;
-                font-size: 14px;
-                opacity: 0;
-                transition: opacity 0.3s;
-                pointer-events: none;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            `;
+            statusEl.className = 'player-status';
             document.body.appendChild(statusEl);
 
-            // 创建律动图标
+            // 律动图标 - 添加星星
             const rhythmIcon = document.createElement('div');
             rhythmIcon.id = 'player-rhythm-icon';
             rhythmIcon.className = 'player-rhythm-icon';
@@ -1442,6 +1268,8 @@
             }
             
             rhythmIcon.innerHTML = `
+                <div class="rhythm-star star-left">✦</div>
+                <div class="rhythm-star star-right">✦</div>
                 <div class="rhythm-left-zone">
                     <div class="zone-hint">拖拽</div>
                 </div>
@@ -1453,7 +1281,6 @@
             `;
             document.body.appendChild(rhythmIcon);
 
-            // 创建播放器主界面
             const root = document.createElement('div');
             root.id = 'player-root';
             root.innerHTML = `
@@ -1594,18 +1421,15 @@
             document.body.appendChild(root);
         },
 
-        // 显示播放器
         show(mode) {
             this.state.isRhythmMode = false;
             if (mode === 'rhythm') {
-                this.state.isRhythmMode = true;
-            } else if (mode === 'pure') {
+                this.state.isRhythmMode = true            } else if (mode === 'pure') {
                 this.state.isPureMode = true;
             }
             this.updateView();
         },
 
-        // 隐藏播放器
         hide() {
             const root = document.getElementById('player-root');
             const rhythmIcon = document.getElementById('player-rhythm-icon');
@@ -1613,14 +1437,12 @@
             if (rhythmIcon) rhythmIcon.style.display = 'none';
         },
 
-        // 获取当前模式
         getCurrentMode() {
             if (this.state.isRhythmMode) return 'rhythm';
             if (this.state.isPureMode) return 'pure';
             return 'normal';
         },
 
-        // 隐藏UI（音乐继续播放）
         hideUI() {
             const root = document.getElementById('player-root');
             const rhythmIcon = document.getElementById('player-rhythm-icon');
@@ -1628,7 +1450,6 @@
             if (rhythmIcon) rhythmIcon.style.display = 'none';
         },
 
-        // 显示UI
         showUI() {
             const root = document.getElementById('player-root');
             const rhythmIcon = document.getElementById('player-rhythm-icon');
@@ -1644,29 +1465,168 @@
             this.updateView();
         },
 
-        // 注入CSS
         injectCSS() {
             const css = `
-                /* 动画定义 */
-                @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-                @keyframes color-cycle {
-                    0% { background-color: #ff0000; } 
-                    14% { background-color: #ff7f00; } 
-                    28% { background-color: #ffff00; } 
-                    42% { background-color: #00ff00; } 
-                    57% { background-color: #00ffff; } 
-                    71% { background-color: #0000ff; } 
-                    85% { background-color: #8b00ff; } 
-                    100% { background-color: #ff0000; }
-                }
+                /* ===== 动画定义 ===== */
                 @keyframes wave { 0%, 100% { height: 2px; } 50% { height: var(--h); } }
+                
+                /* 单色流动渐变 - 从浅到深循环 */
+                @keyframes single-flow {
+                    0% { background-position: 0% 50%; }
+                    100% { background-position: 200% 50%; }
+                }
+                
+                /* 单色呼吸效果 */
+                @keyframes single-breathe {
+                    0%, 100% { opacity: 0.6; filter: brightness(1.2); }
+                    50% { opacity: 1; filter: brightness(1); }
+                }
+                
+                /* 幻彩流动 */
+                @keyframes rainbow-flow {
+                    0% { background-position: 0% 50%; }
+                    100% { background-position: 200% 50%; }
+                }
+                
+                /* 幻彩呼吸 - 颜色随机变化感 */
+                @keyframes rainbow-breathe {
+                    0%, 100% { opacity: 0.7; filter: hue-rotate(0deg) brightness(1.1); }
+                    25% { opacity: 1; filter: hue-rotate(30deg) brightness(1); }
+                    50% { opacity: 0.8; filter: hue-rotate(60deg) brightness(1.2); }
+                    75% { opacity: 1; filter: hue-rotate(-30deg) brightness(1); }
+                }
+                
+                /* 星星闪烁动画 - 左边星星 */
+                @keyframes star-twinkle-left {
+                    0%, 100% { opacity: 0.3; transform: scale(0.6); }
+                    30% { opacity: 1; transform: scale(1.2); }
+                    60% { opacity: 0.5; transform: scale(0.8); }
+                }
+                
+                /* 星星闪烁动画 - 右边星星（不同频率） */
+                @keyframes star-twinkle-right {
+                    0%, 100% { opacity: 0.4; transform: scale(0.7); }
+                    40% { opacity: 1; transform: scale(1.3); }
+                    70% { opacity: 0.6; transform: scale(0.9); }
+                }
 
-                /* 状态提示 */
-                #player-status.status-info { background: #00d2ff; }
-                #player-status.status-success { background: #00cc66; }
-                #player-status.status-error { background: #ff4444; }
+                /* ===== 弹窗样式（修复z-index） ===== */
+                .player-dialog-overlay {
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    bottom: 0 !important;
+                    background: rgba(0, 0, 0, 0.8) !important;
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    z-index: 2147483647 !important;
+                    padding: 20px !important;
+                    box-sizing: border-box !important;
+                    overflow: auto !important;
+                }
+                
+                .player-dialog {
+                    background: #2a2a2a !important;
+                    border-radius: 16px !important;
+                    padding: 25px !important;
+                    max-width: 90% !important;
+                    width: 400px !important;
+                    max-height: 85vh !important;
+                    overflow-y: auto !important;
+                    text-align: center !important;
+                    color: #fff !important;
+                    box-shadow: 0 15px 35px rgba(0,0,0,0.5) !important;
+                    margin: auto !important;
+                    position: relative !important;
+                    z-index: 2147483647 !important;
+                }
+                
+                .player-dialog .dialog-title {
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-bottom: 20px;
+                }
+                
+                .player-dialog .add-options,
+                .player-dialog .lyrics-btns {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                    margin: 20px 0;
+                }
+                
+                .player-dialog .add-option-btn,
+                .player-dialog .dialog-btn {
+                    background: rgba(255,255,255,0.1);
+                    border: 2px solid rgba(255,255,255,0.2);
+                    border-radius: 12px;
+                    padding: 20px;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    color: #fff;
+                }
+                
+                .player-dialog .add-option-btn:hover,
+                .player-dialog .dialog-btn:hover {
+                    background: rgba(255,255,255,0.2);
+                    border-color: rgba(255,255,255,0.4);
+                    transform: translateY(-2px);
+                }
+                
+                .player-dialog .option-icon {
+                    font-size: 32px;
+                    line-height: 1;
+                }
+                
+                .player-dialog .option-text {
+                    font-size: 16px;
+                    font-weight: bold;
+                }
+                
+                .player-dialog .dialog-cancel {
+                    background: transparent;
+                    border: 1px solid rgba(255,255,255,0.3);
+                    color: #fff;
+                    padding: 10px 25px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    transition: all 0.2s;
+                }
+                
+                .player-dialog .dialog-cancel:hover {
+                    background: rgba(255,255,255,0.1);
+                }
 
-                /* 律动图标 */
+                /* ===== 状态提示 ===== */
+                .player-status {
+                    position: fixed !important;
+                    top: 20px !important;
+                    left: 50% !important;
+                    transform: translateX(-50%) !important;
+                    background: #7eb8c9 !important;
+                    color: white !important;
+                    padding: 12px 24px !important;
+                    border-radius: 25px !important;
+                    z-index: 2147483647 !important;
+                    font-size: 14px !important;
+                    opacity: 0 !important;
+                    transition: opacity 0.3s !important;
+                    pointer-events: none !important;
+                    box-shadow: 0 5px 20px rgba(0,0,0,0.3) !important;
+                }
+                .player-status.status-info { background: #7eb8c9 !important; }
+                .player-status.status-success { background: #7ec98b !important; }
+                .player-status.status-error { background: #c97e7e !important; }
+
+                /* ===== 律动图标 ===== */
                 .player-rhythm-icon {
                     position: fixed; 
                     z-index: 10000;
@@ -1677,8 +1637,48 @@
                     align-items: center; 
                     justify-content: flex-end;
                     pointer-events: auto;
-                    --rgb-single: #00d2ff;
+                    --rgb-single: #7eb8c9;
                     background: transparent;
+                }
+
+                /* 律动模式星星 */
+                .rhythm-star {
+                    position: absolute;
+                    top: -5px;
+                    font-size: 20px;
+                    color: #333;
+                    z-index: 15;
+                    pointer-events: none;
+                }
+                
+                .rhythm-star.star-left {
+                    left: 35px;
+                    animation: star-twinkle-left 1.5s ease-in-out infinite;
+                }
+                
+                .rhythm-star.star-right {
+                    right: 35px;
+                    animation: star-twinkle-right 2s ease-in-out infinite;
+                }
+                
+                /* 星星RGB效果 */
+                .player-rhythm-icon.rgb-single .rhythm-star {
+                    color: var(--rgb-single);
+                    text-shadow: 0 0 10px var(--rgb-single);
+                }
+                
+                .player-rhythm-icon.rgb-rainbow .rhythm-star {
+                    background: linear-gradient(90deg, 
+                        hsl(0, 60%, 75%), hsl(60, 60%, 75%), hsl(120, 60%, 75%), 
+                        hsl(180, 60%, 75%), hsl(240, 60%, 75%), hsl(300, 60%, 75%), hsl(360, 60%, 75%));
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                    animation: star-twinkle-left 1.5s ease-in-out infinite, rainbow-breathe 3s ease-in-out infinite;
+                }
+                
+                .player-rhythm-icon.rgb-rainbow .rhythm-star.star-right {
+                    animation: star-twinkle-right 2s ease-in-out infinite, rainbow-breathe 3s ease-in-out infinite 0.5s;
                 }
 
                 .rhythm-left-zone,
@@ -1693,18 +1693,9 @@
                     z-index: 10;
                 }
                 
-                .rhythm-left-zone {
-                    left: 0;
-                    cursor: grab;
-                }
-                .rhythm-left-zone:active {
-                    cursor: grabbing;
-                }
-                
-                .rhythm-right-zone {
-                    right: 0;
-                    cursor: pointer;
-                }
+                .rhythm-left-zone { left: 0; cursor: grab; }
+                .rhythm-left-zone:active { cursor: grabbing; }
+                .rhythm-right-zone { right: 0; cursor: pointer; }
 
                 .zone-hint {
                     font-size: 10px;
@@ -1715,9 +1706,7 @@
                 }
                 
                 .rhythm-left-zone:hover .zone-hint,
-                .rhythm-right-zone:hover .zone-hint {
-                    opacity: 1;
-                }
+                .rhythm-right-zone:hover .zone-hint { opacity: 1; }
                 
                 .rhythm-wave-box { 
                     display: flex; 
@@ -1730,10 +1719,11 @@
                     box-sizing: border-box;
                 }
                 
+                /* 律动条 - 从下往上渐变 */
                 .rhythm-bar { 
                     width: 3px; 
                     height: 2px; 
-                    background: #000; 
+                    background: linear-gradient(to top, #333, #666);
                     border-radius: 1px; 
                     transition: background 0.3s; 
                 }
@@ -1746,7 +1736,7 @@
                 .rhythm-base-line { 
                     width: 100%; 
                     height: 2px; 
-                    background: #000; 
+                    background: #333; 
                     margin-top: 1px; 
                 }
 
@@ -1755,23 +1745,41 @@
                     animation-delay: var(--d); 
                 }
                 
-                .player-rhythm-icon.rgb-single .rhythm-bar, 
+                /* 律动条单色模式 - 渐变从下到上 */
+                .player-rhythm-icon.rgb-single .rhythm-bar { 
+                    background: linear-gradient(to top, 
+                        var(--rgb-single),
+                        color-mix(in srgb, var(--rgb-single) 70%, white)
+                    );
+                    box-shadow: 0 0 5px var(--rgb-single); 
+                }
+                
                 .player-rhythm-icon.rgb-single .rhythm-base-line { 
                     background: var(--rgb-single); 
                     box-shadow: 0 0 5px var(--rgb-single); 
                 }
                 
-                .player-rhythm-icon.rgb-rainbow .rhythm-bar, 
-                .player-rhythm-icon.rgb-rainbow .rhythm-base-line { 
-                    animation: color-cycle 4s infinite linear; 
+                /* 律动条幻彩模式 */
+                .player-rhythm-icon.rgb-rainbow .rhythm-bar { 
+                    background: linear-gradient(to top,
+                        hsl(0, 60%, 75%), hsl(60, 60%, 75%), hsl(120, 60%, 75%),
+                        hsl(180, 60%, 75%), hsl(240, 60%, 75%)
+                    );
+                    background-size: 100% 200%;
+                    animation: wave var(--s) infinite ease-in-out alternate, rainbow-breathe 3s ease-in-out infinite;
+                    animation-delay: var(--d), 0s;
                 }
                 
-                .player-rhythm-icon.rgb-rainbow.playing .rhythm-bar { 
-                    animation: wave var(--s) infinite ease-in-out alternate, color-cycle 4s infinite linear; 
-                    animation-delay: var(--d), 0s; 
+                .player-rhythm-icon.rgb-rainbow .rhythm-base-line { 
+                    background: linear-gradient(90deg,
+                        hsl(0, 60%, 75%), hsl(60, 60%, 75%), hsl(120, 60%, 75%),
+                        hsl(180, 60%, 75%), hsl(240, 60%, 75%), hsl(300, 60%, 75%), hsl(360, 60%, 75%)
+                    );
+                    background-size: 200% 100%;
+                    animation: rainbow-flow 4s linear infinite;
                 }
 
-                /* 播放器主体 */
+                /* ===== 播放器主体 ===== */
                 #player-root {
                     position: fixed; 
                     z-index: 10000;
@@ -1784,13 +1792,14 @@
                     box-shadow: 0 20px 50px rgba(0,0,0,0.5);
                     transition: height 0.3s, width 0.3s; 
                     pointer-events: auto;
-                    --rgb-single: #00d2ff; 
+                    --rgb-single: #7eb8c9; 
                     --border-w: 6px;
-                    --lyrics-start: #00d2ff; 
-                    --lyrics-end: #ff00ff;
+                    --lyrics-start: #7eb8c9; 
+                    --lyrics-end: #c9a7eb;
                 }
                 #player-root.expanded { height: 520px !important; }
 
+                /* RGB边框 - 单色模式：渐变流动+呼吸 */
                 .player-rgb-border { 
                     position: absolute; 
                     inset: 0; 
@@ -1801,12 +1810,33 @@
                     mask-composite: exclude;
                     padding: var(--border-w);
                 }
+                
                 .player-rgb-border.mode-single { 
-                    background: var(--rgb-single) !important; 
-                    animation: blink 2s infinite; 
+                    background: linear-gradient(90deg,
+                        color-mix(in srgb, var(--rgb-single) 30%, white),
+                        color-mix(in srgb, var(--rgb-single) 50%, white),
+                        var(--rgb-single),
+                        color-mix(in srgb, var(--rgb-single) 80%, black),
+                        color-mix(in srgb, var(--rgb-single) 60%, black),
+                        var(--rgb-single),
+                        color-mix(in srgb, var(--rgb-single) 50%, white),
+                        color-mix(in srgb, var(--rgb-single) 30%, white)
+                    ) !important;
+                    background-size: 200% 100% !important;
+                    animation: single-flow 3s linear infinite, single-breathe 2s ease-in-out infinite !important;
                 }
+                
+                /* RGB边框 - 幻彩模式：多色流动+呼吸 */
                 .player-rgb-border.mode-rainbow { 
-                    animation: color-cycle 4s infinite linear, blink 2s infinite; 
+                    background: linear-gradient(90deg,
+                        hsl(0, 55%, 75%), hsl(30, 55%, 75%), hsl(60, 55%, 75%),
+                        hsl(90, 55%, 75%), hsl(120, 55%, 75%), hsl(150, 55%, 75%),
+                        hsl(180, 55%, 75%), hsl(210, 55%, 75%), hsl(240, 55%, 75%),
+                        hsl(270, 55%, 75%), hsl(300, 55%, 75%), hsl(330, 55%, 75%),
+                        hsl(360, 55%, 75%)
+                    ) !important;
+                    background-size: 200% 100% !important;
+                    animation: rainbow-flow 4s linear infinite, rainbow-breathe 3s ease-in-out infinite !important;
                 }
 
                 .player-inner {
@@ -1822,7 +1852,6 @@
                     transition: background 0.3s;
                 }
 
-                /* 磨砂玻璃效果 */
                 .player-inner.glass-mode {
                     backdrop-filter: blur(20px) saturate(180%);
                     -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -1842,17 +1871,34 @@
                     z-index: 20; 
                     top: 0;
                     transition: background 0.3s;
+                    overflow: hidden;
                 }
 
-                /* 灵动岛RGB效果 */
-                .player-island.rgb-single {
-                    background: var(--rgb-single) !important;
-                    animation: blink 2s infinite;
-                    box-shadow: 0 0 10px var(--rgb-single);
+                /* 灵动岛单色流动效果 */
+                .player-island.rgb-single-flow {
+                    background: linear-gradient(90deg,
+                        color-mix(in srgb, var(--rgb-single) 30%, white),
+                        color-mix(in srgb, var(--rgb-single) 50%, white),
+                        var(--rgb-single),
+                        color-mix(in srgb, var(--rgb-single) 80%, black),
+                        var(--rgb-single),
+                        color-mix(in srgb, var(--rgb-single) 50%, white),
+                        color-mix(in srgb, var(--rgb-single) 30%, white)
+                    ) !important;
+                    background-size: 200% 100% !important;
+                    animation: single-flow 3s linear infinite, single-breathe 2s ease-in-out infinite !important;
+                    box-shadow: 0 0 15px var(--rgb-single) !important;
                 }
 
-                .player-island.rgb-rainbow {
-                    animation: color-cycle 4s infinite linear, blink 2s infinite;
+                /* 灵动岛幻彩流动效果 */
+                .player-island.rgb-rainbow-flow {
+                    background: linear-gradient(90deg,
+                        hsl(0, 55%, 75%), hsl(60, 55%, 75%), hsl(120, 55%, 75%),
+                        hsl(180, 55%, 75%), hsl(240, 55%, 75%), hsl(300, 55%, 75%), hsl(360, 55%, 75%)
+                    ) !important;
+                    background-size: 200% 100% !important;
+                    animation: rainbow-flow 4s linear infinite, rainbow-breathe 3s ease-in-out infinite !important;
+                    box-shadow: 0 0 15px rgba(126, 184, 201, 0.5) !important;
                 }
                 
                 .player-main { 
