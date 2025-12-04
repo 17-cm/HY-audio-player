@@ -1,6 +1,6 @@
 {
   "display_name": "音乐播放器",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "hy.禾一",
   "homePage": "https://github.com/17-cm/HY-audio-player",
   "js": "index.js",
