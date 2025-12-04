@@ -1,7 +1,7 @@
 {
   "display_name": "音乐播放器",
   "version": "1.0.1",
-  "author": "17-cm",
+  "author": "hy.禾一",
   "homePage": "https://github.com/17-cm/HY-audio-player",
   "js": "index.js",
   "css": "style.css",
