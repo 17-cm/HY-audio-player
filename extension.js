@@ -26,10 +26,10 @@
                     一个支持网易云音乐的Ins风格播放器
                 </p>
                 <div class="flex-container flexGap5" style="margin-bottom: 15px;">
-                    <button id="toggle-hy-player" class="menu_button" style="flex: 1;">
+                    <button type="button" id="toggle-hy-player" class="menu_button" style="flex: 1;">
                         <i class="fa-solid fa-expand"></i> 展开播放器
                     </button>
-                    <button id="open-external" class="menu_button" style="flex: 1;">
+                    <button type="button" id="open-external" class="menu_button" style="flex: 1;">
                         <i class="fa-solid fa-external-link-alt"></i> 独立窗口
                     </button>
                 </div>
@@ -45,7 +45,7 @@
                         ></iframe>
                     </div>
                     <div style="text-align: center; margin-bottom: 5px;">
-                        <button id="close-hy-player" class="menu_button" style="width: auto; padding: 5px 15px;">
+                        <button type="button" id="close-hy-player" class="menu_button" style="width: auto; padding: 5px 15px;">
                             <i class="fa-solid fa-compress"></i> 收起播放器
                         </button>
                     </div>
@@ -64,7 +64,10 @@
     
     function bindEvents() {
         // 展开播放器 (内嵌模式)
-        document.getElementById('toggle-hy-player').addEventListener('click', function() {
+        document.getElementById('toggle-hy-player').addEventListener('click', function(e) {
+            e.preventDefault(); // 阻止默认行为
+            e.stopPropagation(); // 阻止事件冒泡
+            
             const wrapper = document.getElementById('hy-player-iframe-wrapper');
             const iframe = document.getElementById('hy-audio-player-iframe');
             
@@ -78,14 +81,20 @@
         });
         
         // 收起播放器
-        document.getElementById('close-hy-player').addEventListener('click', function() {
+        document.getElementById('close-hy-player').addEventListener('click', function(e) {
+            e.preventDefault(); // 阻止默认行为
+            e.stopPropagation(); // 阻止事件冒泡
+            
             const wrapper = document.getElementById('hy-player-iframe-wrapper');
             wrapper.style.display = 'none';
             document.getElementById('toggle-hy-player').style.display = 'block';
         });
         
         // 独立窗口模式
-        document.getElementById('open-external').addEventListener('click', function() {
+        document.getElementById('open-external').addEventListener('click', function(e) {
+            e.preventDefault(); // 阻止默认行为
+            e.stopPropagation(); // 阻止事件冒泡
+            
             window.open(
                 '/scripts/extensions/third-party/HY-audio-player/index.html',
                 'HY_Audio_Player',
@@ -96,7 +105,9 @@
         // 处理inline-drawer的展开/收起
         const drawerHeader = document.querySelector('#hy-audio-player-extension .inline-drawer-toggle');
         if (drawerHeader) {
-            drawerHeader.addEventListener('click', function() {
+            drawerHeader.addEventListener('click', function(e) {
+                e.preventDefault(); // 阻止默认行为
+                
                 const icon = this.querySelector('.inline-drawer-icon');
                 const content = this.nextElementSibling;
                 
