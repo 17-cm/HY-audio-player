@@ -1,18 +1,43 @@
-本项目的部分功能依赖于以下优秀的开源项目：
+# 音乐播放器
 
-- **[原项目地址]** ([https://github.com/Suxiaoqinx/Netease_url])
-  - **用途**：为本播放器提供网易云音乐分享链接的解析能力。
-  - **许可证**：该项目基于 MIT 许可证发布，并附加
-  - **非商业使用限制**。
-  - 因此，
-  - **本项目及其任何衍生作品也严格禁止用于任何商业或付费目的**。
-  - 感谢原作者的杰出工作。
+支持网易云音乐分享链接直链、本地文件和URL直链播放。
+
+## 功能
+- 🎵 播放网易云音乐、本地文件、URL直链
+- 📱 完美支持手机和电脑
+- 🎨 自定义颜色、尺寸、背景
+- 🔄 拖拽移动，随意摆放
+- 📜 记录播放历史
+- ⌨️ 键盘快捷键支持
+
+## 快速使用
+1. 在酒馆扩展安装地址输入：https://github.com/17-cm/HY-audio-player
+2. 点击安装，刷新页面即可使用
+
+## 基本操作
+- **播放/暂停**：点击▶按钮 或按 `Alt+P`
+- **上一首/下一首**：点击⏮/⏭ 或按 `Alt+B`/`Alt+N`
+- **最小化**：点击𓆝按钮 或按 `Alt+M`
+- **添加歌曲**：点击播放列表的"添加歌曲"
+- **移动位置**：拖动顶部黑色小条
+
+## 重要说明
+
+### 关于网易云功能
+本播放器的网易云音乐解析功能使用了开源项目：
+- **项目**：Netease_url
+- **作者**：Suxiaoqinx
+- **地址**：https://github.com/Suxiaoqinx/Netease_url
+
+已获得作者同意使用，特此感谢！
+
+### 使用限制
+⚠️ **请严格遵守以下规定：**
+- 仅供个人免费使用
+- **禁止任何形式的付费、出售**
+- **禁止二改**
+- 尊重音乐版权，支持正版
 
 ---
 
-*This project utilizes components from the following open-source project:*
-
-*   *[Original Project URL]* ([https://github.com/Suxiaoqinx/Netease_url])
-    *   *Purpose: Provides parsing capabilities for NetEase Cloud Music share links.*
-    *   *License: This project is released under the MIT License with an additional **non-commercial restriction**. Consequently, **this project and any derivatives are strictly prohibited from any commercial or paid use**.*
-    *   *Acknowledgement: Thanks to the original author for the great work.*
+**使用愉快！如有问题随时反馈~** 🎶
