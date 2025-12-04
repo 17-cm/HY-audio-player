@@ -1,45 +1,30 @@
-// HY Audio Player Extension
-(function() {
-    console.log('🎵 HY Audio Player extension loading...');
+// 替换或修改你原来的点击事件处理函数
+document.getElementById('open-player').addEventListener('click', function() {
+    // 获取或创建iframe容器
+    let iframeContainer = document.getElementById('hy-player-iframe-container');
     
-    // 等待扩展设置容器
-    const waitForContainer = setInterval(() => {
-        const container = document.getElementById('extensions_settings');
-        if (container) {
-            clearInterval(waitForContainer);
-            initExtension();
-        }
-    }, 500);
-    
-    function initExtension() {
-        console.log('🎵 Initializing HY Audio Player...');
-        
-        // 创建扩展UI
-        const html = `
-        <div id="hy-audio-player-extension" class="inline-drawer">
-            <div class="inline-drawer-toggle inline-drawer-header">
-                <b>🎵 HY Audio Player</b>
-                <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+    if (!iframeContainer) {
+        // 如果容器不存在，则在扩展面板内创建一个
+        const extensionContent = this.closest('.inline-drawer-content');
+        extensionContent.insertAdjacentHTML('beforeend', `
+            <div id="hy-player-iframe-container" style="margin-top: 15px; border-top: 1px solid var(--border_color); padding-top: 15px;">
+                <iframe 
+                    id="hy-audio-player-iframe"
+                    src="/scripts/extensions/third-party/HY-audio-player/index.html"
+                    style="width: 100%; height: 600px; border: 1px solid var(--border_color); border-radius: 5px;"
+                >
+                </iframe>
             </div>
-            <div class="inline-drawer-content">
-                <p style="margin: 10px 0;">支持网易云音乐的Ins风格播放器</p>
-                <button id="open-hy-player" class="menu_button" style="width: 100%; margin: 10px 0;">
-                    <i class="fa-solid fa-play"></i> 打开音频播放器
-                </button>
-            </div>
-        </div>`;
-        
-        // 添加到扩展设置
-        document.getElementById('extensions_settings').insertAdjacentHTML('beforeend', html);
-        
-        // 绑定按钮事件
-        document.getElementById('open-hy-player').addEventListener('click', function() {
-            // 打开你的播放器
-            window.open('/scripts/extensions/third-party/HY-audio-player/index.html', 
-                       'audio-player', 
-                       'width=800,height=600,resizable=yes,scrollbars=yes');
-        });
-        
-        console.log('🎵 HY Audio Player extension loaded successfully');
+        `);
+        // 按钮文字改为“关闭”
+        this.innerHTML = '<i class="fa-solid fa-close"></i> 关闭播放器';
+    } else {
+        // 如果容器已存在，则切换显示/隐藏
+        const isHidden = iframeContainer.style.display === 'none';
+        iframeContainer.style.display = isHidden ? 'block' : 'none';
+        // 切换按钮文字
+        this.innerHTML = isHidden ? 
+            '<i class="fa-solid fa-close"></i> 关闭播放器' : 
+            '<i class="fa-solid fa-play"></i> 打开播放器';
     }
-})();
+});
