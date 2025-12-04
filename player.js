@@ -20,7 +20,7 @@
         rgbColor: '#00d2ff',
         glassAlpha: 0.6,
         playerWidth: '400px',
-        playerHeight: '160px',
+        playerHeight: '180px',
         lyricsGradientStart: '#00d2ff',
         lyricsGradientEnd: '#ff00ff',
         pos: { x: 20, y: 100 }
@@ -38,7 +38,7 @@
             glassOpacity: 0.6,
             speed: 1.0,
             panel: false,
-            isRhythmMode: false, // 律动模式（原最小化）
+            isRhythmMode: false,
             isPlaying: false,
             isPureMode: false,
             lyrics: [],
@@ -69,7 +69,6 @@
                     this.state = { ...this.state, ...data.state };
                     this.state.cfg = { ...defaultConfig, ...data.state.cfg };
                     
-                    // 位置边界检查
                     const checkPos = (pos, def) => {
                         if (pos.x > window.innerWidth - 50) pos.x = def.x;
                         if (pos.y > window.innerHeight - 50) pos.y = def.y;
@@ -145,7 +144,7 @@
             document.body.appendChild(input);
             input.click();
         },
-
+        
         // 更新视图
         updateView() {
             const root = document.getElementById('player-root');
@@ -170,7 +169,7 @@
             root.style.setProperty('--lyrics-end', cfg.lyricsGradientEnd);
             root.style.color = cfg.themeColor;
             root.style.width = cfg.playerWidth;
-            rrhythmIcon.style.setProperty('--rgb-single', cfg.rgbColor);
+            rhythmIcon.style.setProperty('--rgb-single', cfg.rgbColor);
 
             // 灵动岛颜色同步（包括RGB效果）
             const island = document.getElementById('player-island');
@@ -335,7 +334,7 @@
                 opt.classList.toggle('active', parseInt(opt.dataset.val) === this.state.rgbMode);
             });
         },
-
+        
         // 更新纯享模式歌词
         updatePureLyrics() {
             const container = document.getElementById('pure-lyrics-container');
@@ -744,7 +743,7 @@
                     console.error('添加失败:', error);
                 });
         },
-      
+
         // 网易云歌单获取
         async fetchNeteasePlaylist(link) {
             try {
@@ -1380,7 +1379,6 @@
             
             this.audio.onended = () => {
                 if (this.state.playMode === 1) {
-                    // 单曲循环
                     this.audio.currentTime = 0;
                     this.audio.play();
                 } else {
@@ -1395,32 +1393,6 @@
                 }
                 this.updateLyrics();
             };
-        },
-                                
-        // 显示播放器
-        show(mode) {
-            this.state.isRhythmMode = false;
-            if (mode === 'rhythm') {
-                this.state.isRhythmMode = true;
-            } else if (mode === 'pure') {
-                this.state.isPureMode = true;
-            }
-            this.updateView();
-        },
-
-        // 隐藏播放器
-        hide() {
-            const root = document.getElementById('player-root');
-            const rhythmIcon = document.getElementById('player-rhythm-icon');
-            if (root) root.style.display = 'none';
-            if (rhythmIcon) rhythmIcon.style.display = 'none';
-        },
-
-        // 获取当前模式
-        getCurrentMode() {
-            if (this.state.isRhythmMode) return 'rhythm';
-            if (this.state.isPureMode) return 'pure';
-            return 'normal';
         },
 
         // 创建UI
@@ -1594,7 +1566,7 @@
                                 <input id="inp-width-player" type="range" min="300" max="600" step="10">
                             </div>
                             <div class="panel-row">
-                                <span>播放器高度 <b id="val-height-player">160px</b></span>
+                                <span>播放器高度 <b id="val-height-player">180px</b></span>
                                 <input id="inp-height-player" type="range" min="140" max="300" step="5">
                             </div>
                             <div class="panel-row">
@@ -1670,7 +1642,7 @@
             }
             
             this.updateView();
-        }
+        },
 
         // 注入CSS
         injectCSS() {
@@ -1804,7 +1776,7 @@
                     position: fixed; 
                     z-index: 10000;
                     width: 400px;
-                    height: var(--player-h, 160px);
+                    height: var(--player-h, 180px);
                     border-radius: 30px; 
                     display: none; 
                     flex-direction: column;
@@ -2260,111 +2232,6 @@
                     padding: 40px 0;
                     opacity: 0.5;
                     font-size: 13px;
-                }
-
-                /* 对话框 */
-                .dialog-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0,0,0,0.6);
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    z-index: 10001;
-                }
-
-                .add-dialog, .lyrics-dialog {
-                    background: #2a2a2a;
-                    border-radius: 16px;
-                    padding: 25px;
-                    min-width: 250px;
-                    text-align: center;
-                    color: #fff;
-                    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-                }
-
-                .dialog-title {
-                    font-size: 16px;
-                    font-weight: bold;
-                    margin-bottom: 15px;
-                }
-
-                .add-options {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 15px;
-                    margin: 20px 0;
-                }
-
-                .add-option-btn {
-                    background: rgba(255,255,255,0.1);
-                    border: 2px solid rgba(255,255,255,0.2);
-                    border-radius: 12px;
-                    padding: 20px;
-                    cursor: pointer;
-                    transition: all 0.3s;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 10px;
-                    color: inherit;
-                }
-
-                .add-option-btn:hover {
-                    background: rgba(255,255,255,0.2);
-                    transform: translateY(-2px);
-                    border-color: rgba(255,255,255,0.3);
-                }
-
-                .option-icon {
-                    font-size: 32px;
-                    line-height: 1;
-                }
-
-                .option-text {
-                    font-size: 16px;
-                    font-weight: bold;
-                }
-
-                .lyrics-btns {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                    margin-bottom: 15px;
-                }
-
-                .dialog-btn {
-                    padding: 12px 20px;
-                    border: none;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    transition: all 0.2s;
-                    background: #00d2ff;
-                    color: #000;
-                }
-
-                .dialog-btn:hover {
-                    transform: scale(1.02);
-                    opacity: 0.9;
-                }
-
-                .dialog-cancel {
-                    background: transparent;
-                    border: 1px solid rgba(255,255,255,0.3);
-                    color: #fff;
-                    padding: 8px 20px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-size: 12px;
-                }
-
-                .dialog-cancel:hover {
-                    background: rgba(255,255,255,0.1);
                 }
 
                 .player-panel::-webkit-scrollbar { width: 4px; }
