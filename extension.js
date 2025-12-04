@@ -64,67 +64,86 @@
     
     function bindEvents() {
         // 展开播放器 (内嵌模式)
-        document.getElementById('toggle-hy-player').addEventListener('click', function(e) {
-            e.preventDefault(); // 阻止默认行为
-            e.stopPropagation(); // 阻止事件冒泡
-            
-            const wrapper = document.getElementById('hy-player-iframe-wrapper');
-            const iframe = document.getElementById('hy-audio-player-iframe');
-            
-            wrapper.style.display = 'block';
-            this.style.display = 'none';
-            
-            // 确保iframe正确加载
-            setTimeout(() => {
-                iframe.src = iframe.src; // 重新加载以确保内容正确显示
-            }, 100);
-        });
+        const toggleBtn = document.getElementById('toggle-hy-player');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const wrapper = document.getElementById('hy-player-iframe-wrapper');
+                const iframe = document.getElementById('hy-audio-player-iframe');
+                
+                if (wrapper && iframe) {
+                    wrapper.style.display = 'block';
+                    this.style.display = 'none';
+                    
+                    // 确保iframe正确加载
+                    setTimeout(() => {
+                        iframe.src = iframe.src;
+                    }, 100);
+                }
+            });
+        }
         
         // 收起播放器
-        document.getElementById('close-hy-player').addEventListener('click', function(e) {
-            e.preventDefault(); // 阻止默认行为
-            e.stopPropagation(); // 阻止事件冒泡
-            
-            const wrapper = document.getElementById('hy-player-iframe-wrapper');
-            wrapper.style.display = 'none';
-            document.getElementById('toggle-hy-player').style.display = 'block';
-        });
+        const closeBtn = document.getElementById('close-hy-player');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const wrapper = document.getElementById('hy-player-iframe-wrapper');
+                const toggleBtn = document.getElementById('toggle-hy-player');
+                
+                if (wrapper) wrapper.style.display = 'none';
+                if (toggleBtn) toggleBtn.style.display = 'block';
+            });
+        }
         
         // 独立窗口模式
-        document.getElementById('open-external').addEventListener('click', function(e) {
-            e.preventDefault(); // 阻止默认行为
-            e.stopPropagation(); // 阻止事件冒泡
-            
-            window.open(
-                '/scripts/extensions/third-party/HY-audio-player/index.html',
-                'HY_Audio_Player',
-                'width=800,height=700,resizable=yes,scrollbars=yes,location=no'
-            );
-        });
+        const externalBtn = document.getElementById('open-external');
+        if (externalBtn) {
+            externalBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                window.open(
+                    '/scripts/extensions/third-party/HY-audio-player/index.html',
+                    'HY_Audio_Player',
+                    'width=800,height=700,resizable=yes,scrollbars=yes,location=no'
+                );
+            });
+        }
         
         // 处理inline-drawer的展开/收起
         const drawerHeader = document.querySelector('#hy-audio-player-extension .inline-drawer-toggle');
         if (drawerHeader) {
             drawerHeader.addEventListener('click', function(e) {
-                e.preventDefault(); // 阻止默认行为
+                e.preventDefault();
                 
                 const icon = this.querySelector('.inline-drawer-icon');
                 const content = this.nextElementSibling;
                 
-                if (content.style.display === 'none') {
-                    content.style.display = 'block';
-                    icon.classList.remove('down');
-                    icon.classList.add('up');
-                } else {
-                    content.style.display = 'none';
-                    icon.classList.remove('up');
-                    icon.classList.add('down');
+                if (content) {
+                    if (content.style.display === 'none') {
+                        content.style.display = 'block';
+                        if (icon) {
+                            icon.classList.remove('down');
+                            icon.classList.add('up');
+                        }
+                    } else {
+                        content.style.display = 'none';
+                        if (icon) {
+                            icon.classList.remove('up');
+                            icon.classList.add('down');
+                        }
+                    }
                 }
             });
         }
     }
     
-    // 清理函数 (如果扩展被卸载)
+    // 清理函数
     window.addEventListener('beforeunload', function() {
         const extensionElement = document.getElementById('hy-audio-player-extension');
         if (extensionElement) {
