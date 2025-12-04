@@ -4,156 +4,55 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>HY音乐播放器</title>
-    <link rel="stylesheet" href="player.css">
-    <link rel="stylesheet" href="icon.css">
+    
+    <!-- 引用合并后的样式文件 -->
+    <link rel="stylesheet" href="style.css">
+    
     <style>
-        /* ===== 关键修复：iframe内嵌适配样式 ===== */
-        /* 重置body和html，确保在iframe内正常显示 */
+        /* iframe内嵌适配 */
         html, body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: auto; /* 允许滚动，但限制在iframe内 */
+            overflow: auto;
             background: transparent !important;
         }
         
-        /* 主容器 - 移除fixed定位，改为常规布局 */
         #music-player-container {
-            position: relative; /* 改为relative */
+            position: relative;
             width: 100%;
             min-height: 100%;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: transparent;
-            box-sizing: border-box;
-            z-index: 1; /* 降低z-index */
-        }
-        
-        /* 确保所有子元素盒模型正确 */
-        #music-player-container * {
-            box-sizing: border-box;
-            max-width: 100%;
-        }
-        
-        /* 主题自适应 - 保持原样 */
-        @media (prefers-color-scheme: light) {
-            :root {
-                --icon-filter: invert(0);
-            }
-        }
-        
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --icon-filter: invert(1);
-            }
-        }
-        
-        .extension-icon {
-            filter: var(--icon-filter, invert(0));
-            transition: filter 0.3s;
-        }
-        
-        /* ===== 内嵌模式特殊处理 ===== */
-        /* 检测是否在iframe中，并应用相应样式 */
-        .iframe-mode #music-player-container {
-            padding: 10px;
-        }
-        
-        /* 防止任何元素尝试跳出iframe */
-        .no-escape {
-            position: relative !important;
-            z-index: auto !important;
         }
     </style>
 </head>
 <body>
-    <!-- 添加iframe检测类 -->
-    <script>
-        // 检测是否在iframe中运行
-        if (window !== window.top) {
-            document.body.classList.add('iframe-mode');
-            console.log('🎵 HY播放器：iframe内嵌模式');
-            
-            // 安全措施：防止父窗口访问
-            Object.defineProperty(window, 'top', { get: function() { return window; } });
-            Object.defineProperty(window, 'parent', { get: function() { return window; } });
-            
-            // 防止任何可能的跳转尝试
-            window.addEventListener('beforeunload', function(e) {
-                // 在iframe中不执行任何跳转
-                return null;
-            });
-        } else {
-            console.log('🎵 HY播放器：独立窗口模式');
-        }
-    </script>
-    
-    <div id="music-player-container" class="no-escape">
+    <div id="music-player-container">
         <!-- 播放器将通过JS动态插入 -->
     </div>
     
+    <!-- 引用正确的JS文件 -->
     <script src="player.js"></script>
+    
     <script>
-        // 扩展初始化 - 安全版本
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🎵 音乐播放器扩展已加载（安全模式）');
+        // 简化初始化逻辑
+        (function() {
+            const isInIframe = window !== window.top;
+            console.log('🎵 HY Audio Player -', isInIframe ? 'iframe模式' : '独立窗口');
             
-            // 安全检查：确保不尝试跳出iframe
-            if (window !== window.top) {
-                // 在iframe中，禁用所有可能的重定向
-                window.location.replace = function() { 
-                    console.warn('重定向尝试被阻止（iframe安全模式）');
-                    return false;
-                };
-                
-                // 覆盖可能的危险操作
-                const originalOpen = window.open;
-                window.open = function(url, name, specs) {
-                    console.warn('window.open调用被阻止（iframe安全模式）:', url);
-                    return null;
-                };
-            }
-            
-            // 等待一小段时间确保DOM完全加载
-            setTimeout(() => {
-                if (window.MusicPlayerApp) {
-                    try {
-                        window.MusicPlayerApp.init();
-                        console.log('🎵 播放器初始化成功');
-                    } catch (e) {
-                        console.error('🎵 播放器初始化失败:', e);
-                    }
-                } else {
-                    console.error('🎵 MusicPlayerApp未定义');
-                }
-            }, 100);
-        });
-        
-        // 导出给酒馆扩展系统 - 安全版本
-        window.MusicPlayerExtension = {
-            version: '1.0.0',
-            name: '音乐播放器',
-            isInIframe: function() {
-                return window !== window.top;
-            },
-            destroy: function() {
-                if (window.MusicPlayerApp) {
-                    try {
+            // player.js 已经有自动初始化，这里只导出接口
+            window.MusicPlayerExtension = {
+                version: '1.0.0',
+                name: 'HY Audio Player',
+                isInIframe: isInIframe,
+                destroy: function() {
+                    if (window.MusicPlayerApp && window.MusicPlayerApp.cleanup) {
                         window.MusicPlayerApp.cleanup();
-                        console.log('🎵 播放器清理完成');
-                    } catch (e) {
-                        console.error('🎵 播放器清理失败:', e);
                     }
                 }
-            },
-            // 安全的重置方法（不重定向）
-            reset: function() {
-                console.log('🎵 播放器重置（安全模式）');
-                if (window.MusicPlayerApp && window.MusicPlayerApp.reset) {
-                    window.MusicPlayerApp.reset();
-                }
-            }
-        };
+            };
+        })();
     </script>
 </body>
 </html>
