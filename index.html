@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>音乐播放器</title>
+    <link rel="stylesheet" href="player.css">
+    <style>
+        /* 扩展容器样式 */
+        #music-player-container {
+            position: fixed;
+            z-index: 9999;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        /* 主题自适应 */
+        @media (prefers-color-scheme: light) {
+            :root {
+                --icon-filter: invert(0);
+            }
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --icon-filter: invert(1);
+            }
+        }
+        
+        .extension-icon {
+            filter: var(--icon-filter, invert(0));
+            transition: filter 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div id="music-player-container">
+        <!-- 播放器将通过JS动态插入 -->
+    </div>
+    
+    <script src="player.js"></script>
+    <script>
+        // 扩展初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎵 音乐播放器扩展已加载');
+            
+            // 等待一小段时间确保DOM完全加载
+            setTimeout(() => {
+                if (window.MusicPlayerApp) {
+                    window.MusicPlayerApp.init();
+                }
+            }, 100);
+        });
+        
+        // 导出给酒馆扩展系统
+        window.MusicPlayerExtension = {
+            version: '1.0.0',
+            name: '音乐播放器',
+            destroy: function() {
+                if (window.MusicPlayerApp) {
+                    window.MusicPlayerApp.cleanup();
+                }
+            }
+        };
+    </script>
+</body>
+</html>
