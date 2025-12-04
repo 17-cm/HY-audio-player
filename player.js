@@ -1723,7 +1723,19 @@
                     left: 50%; 
                     transform: translateX(-50%); 
                     z-index: 20; 
-                    top: 0; 
+                    top: 0;
+                    transition: background 0.3s;
+                }
+
+                /* 灵动岛RGB效果 */
+                .player-island.rgb-single {
+                    background: var(--rgb-single) !important;
+                    animation: blink 2s infinite;
+                    box-shadow: 0 0 10px var(--rgb-single);
+                }
+
+                .player-island.rgb-rainbow {
+                    animation: color-cycle 4s infinite linear, blink 2s infinite;
                 }
                 
                 .player-main { 
