@@ -170,12 +170,22 @@
             root.style.setProperty('--lyrics-end', cfg.lyricsGradientEnd);
             root.style.color = cfg.themeColor;
             root.style.width = cfg.playerWidth;
-            rhythmIcon.style.setProperty('--rgb-single', cfg.rgbColor);
+            rrhythmIcon.style.setProperty('--rgb-single', cfg.rgbColor);
 
-            // 灵动岛颜色同步
+            // 灵动岛颜色同步（包括RGB效果）
             const island = document.getElementById('player-island');
             if (island) {
                 island.style.background = cfg.borderColor;
+                
+                // 同步RGB效果
+                island.className = 'player-island';
+                const mode = this.state.rgbMode;
+                if (mode === 1) {
+                    island.classList.add('rgb-single');
+                    island.style.setProperty('--rgb-single', cfg.rgbColor);
+                } else if (mode === 2) {
+                    island.classList.add('rgb-rainbow');
+                }
             }
 
             // 背景颜色处理
