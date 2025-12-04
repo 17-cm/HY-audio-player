@@ -95,9 +95,10 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 100000;
+            z-index: 2147483647;
             padding: 20px;
             box-sizing: border-box;
+            overflow: auto;
         `;
         
         overlay.innerHTML = `
@@ -106,12 +107,13 @@
                 color: var(--SmartThemeBodyText, #fff);
                 border-radius: 15px;
                 padding: 25px;
-                max-width: 500px;
-                width: 100%;
-                max-height: 80vh;
+                max-width: 90%;
+                width: 500px;
+                max-height: 85vh;
                 overflow-y: auto;
                 position: relative;
                 box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                margin: auto;
             ">
                 <button type="button" id="help-close-btn" style="
                     position: absolute;
