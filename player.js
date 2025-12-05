@@ -169,6 +169,10 @@
             }
             return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
         },
+
+        getDialogContainer() {
+            return document.getElementById('player-dialog-container') || document.body;
+        },
         
         updateView() {
             const root = document.getElementById('player-root');
@@ -558,7 +562,7 @@
                         <div class="cache-progress-tip">请勿关闭页面...</div>
                     </div>
                 `;
-                document.body.appendChild(progressEl);
+                this.getDialogContainer().appendChild(progressEl);
             }
         },
 
@@ -685,7 +689,7 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(overlay);
+            this.getDialogContainer().appendChild(overlay);
 
             overlay.querySelector('.dialog-btn-confirm').onclick = () => {
                 overlay.remove();
@@ -725,7 +729,7 @@
                     <button type="button" id="add-cancel-btn" class="dialog-cancel">取消</button>
                 </div>
             `;
-            document.body.appendChild(overlay);
+            this.getDialogContainer().appendChild(overlay);
 
             overlay.querySelector('#add-single-btn').onclick = () => {
                 overlay.remove();
@@ -760,10 +764,10 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(overlay);
+            this.getDialogContainer().appendChild(overlay);
 
             const input = overlay.querySelector('.dialog-input');
-            input.focus();
+            setTimeout(() => input.focus(), 100);
 
             overlay.querySelector('.dialog-btn-confirm').onclick = () => {
                 const value = input.value.trim();
@@ -1118,7 +1122,7 @@
                     <button type="button" id="lyrics-cancel-btn" class="dialog-cancel">取消</button>
                 </div>
             `;
-            document.body.appendChild(overlay);
+            this.getDialogContainer().appendChild(overlay);
 
             overlay.querySelector('#lyrics-paste-btn').onclick = () => {
                 overlay.remove();
@@ -1484,6 +1488,14 @@
         },
 
         createUI() {
+            // 创建弹窗专用容器（解决移动端层级问题）
+            let dialogContainer = document.getElementById('player-dialog-container');
+            if (!dialogContainer) {
+                dialogContainer = document.createElement('div');
+                dialogContainer.id = 'player-dialog-container';
+                document.body.appendChild(dialogContainer);
+            }
+
             const statusEl = document.createElement('div');
             statusEl.id = 'player-status';
             statusEl.className = 'player-status';
@@ -1712,10 +1724,28 @@
             }
             
             this.updateView();
-        },
+        }
 
         injectCSS() {
             const css = `
+                /* ===== 弹窗专用容器（解决移动端层级问题）===== */
+                #player-dialog-container {
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 0 !important;
+                    height: 0 !important;
+                    z-index: 2147483647 !important;
+                    pointer-events: none !important;
+                    isolation: isolate !important;
+                    transform: translateZ(9999px) !important;
+                    -webkit-transform: translateZ(9999px) !important;
+                }
+                
+                #player-dialog-container > * {
+                    pointer-events: auto !important;
+                }
+
                 /* ===== 动画定义 ===== */
                 @keyframes wave { 0%, 100% { height: 2px; } 50% { height: var(--h); } }
                 
@@ -1822,6 +1852,11 @@
                     40% { opacity: 1; transform: scale(1.3); }
                     70% { opacity: 0.6; transform: scale(0.9); }
                 }
+                
+                @keyframes rainbow-flow {
+                    0% { background-position: 0% 50%; }
+                    100% { background-position: 200% 50%; }
+                }
 
                 /* ===== 缓存进度弹窗 ===== */
                 .cache-progress-dialog {
@@ -1888,6 +1923,8 @@
                     left: 0 !important;
                     right: 0 !important;
                     bottom: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
                     background: rgba(0, 0, 0, 0.8) !important;
                     display: flex !important;
                     justify-content: center !important;
@@ -1896,6 +1933,9 @@
                     padding: 20px !important;
                     box-sizing: border-box !important;
                     overflow: auto !important;
+                    isolation: isolate !important;
+                    transform: translateZ(0) !important;
+                    -webkit-transform: translateZ(0) !important;
                 }
                 
                 .player-dialog {
@@ -1912,6 +1952,8 @@
                     margin: auto !important;
                     position: relative !important;
                     z-index: 2147483647 !important;
+                    transform: translateZ(0) !important;
+                    -webkit-transform: translateZ(0) !important;
                 }
                 
                 .player-dialog .dialog-title {
@@ -2204,11 +2246,6 @@
                     );
                     background-size: 200% 100%;
                     animation: rainbow-flow 4s linear infinite;
-                }
-                
-                @keyframes rainbow-flow {
-                    0% { background-position: 0% 50%; }
-                    100% { background-position: 200% 50%; }
                 }
 
                 /* ===== 播放器主体 ===== */
