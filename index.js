@@ -68,7 +68,7 @@
                         <span>隐藏播放器（音乐继续播放）</span>
                     </label>
                     <small style="opacity: 0.7; display: block; margin-left: 30px;">
-                        勾选后播放器界面隐藏，但音乐不会停止
+                        𓂃𓂃𓂃𓊝𓄹𓄺𓂃𓂃𓂃hy.禾一
                     </small>
                 </div>
                 
@@ -108,7 +108,7 @@
                 border-radius: 15px;
                 padding: 25px;
                 max-width: 90%;
-                width: 500px;
+                width: 520px;
                 max-height: 85vh;
                 overflow-y: auto;
                 position: relative;
@@ -135,48 +135,76 @@
                     transition: all 0.2s;
                 ">×</button>
                 
-                <h2 style="margin-top: 0;">🎵 音乐播放器使用说明</h2>
+                <h2 style="margin-top: 0; text-align: center;">🎵 音乐播放器使用说明</h2>
                 
                 <h3>💻 电脑端操作</h3>
                 <ul>
                     <li><strong>拖动播放器</strong>：点击顶部灵动岛拖动</li>
-                    <li><strong>切换模式</strong>：点击右侧按钮切换窄屏/全屏/律动/纯享模式</li>
-                    <li><strong>添加歌曲</strong>：支持本地文件、直链、网易云链接</li>
-                    <li><strong>快捷键</strong>：
-                        <ul>
-                            <li>Alt + P：播放/暂停</li>
-                            <li>Alt + N：下一首</li>
-                            <li>Alt + B：上一首</li>
-                            <li>空格：播放/暂停</li>
-                        </ul>
-                    </li>
+                    <li><strong>切换模式</strong>：点击右侧按钮切换不同模式</li>
+                    <li><strong>添加歌曲</strong>：支持网易云链接、URL直链、本地文件</li>
                 </ul>
                 
                 <h3>📱 手机端操作</h3>
                 <ul>
                     <li><strong>拖动播放器</strong>：长按顶部灵动岛拖动</li>
-                    <li><strong>切换模式</strong>：点击右侧按钮</li>
-                    <li><strong>律动模式</strong>：左侧拖动，右侧点击展开</li>
-                    <li><strong>添加歌曲</strong>：点击"+"按钮</li>
+                    <li><strong>切换模式</strong>：点击右侧功能按钮</li>
+                    <li><strong>添加歌曲</strong>：点击列表中的"+"按钮</li>
                 </ul>
                 
-                <h3>🎨 播放器模式</h3>
+                <h3>🎛️ 按钮说明</h3>
                 <ul>
-                    <li><strong>窄屏模式</strong>：默认紧凑显示</li>
-                    <li><strong>全屏模式</strong>：展开设置和播放列表</li>
-                    <li><strong>律动模式</strong>：最小化为律动图标</li>
-                    <li><strong>纯享模式</strong>：全屏歌词显示</li>
+                    <li><strong>𓆝</strong> —— 律动模式：最小化为音频律动条</li>
+                    <li><strong>♡</strong> —— 设置面板：自定义播放器外观</li>
+                    <li><strong>𓆟</strong> —— 纯享模式：全屏歌词显示</li>
                 </ul>
                 
-                <h3>☁️ 网易云音乐</h3>
+                <h3>🎚️ 律动模式操作</h3>
+                <p style="opacity: 0.9; line-height: 1.6;">
+                    在律动条上方的空白区域：<br>
+                    • <strong>左侧区域</strong>：按住可拖动位置<br>
+                    • <strong>右侧区域</strong>：双击可展开播放器
+                </p>
+                
+                <h3>☁️ 网易云音乐导入</h3>
                 <ul>
-                    <li>支持歌曲直链导入</li>
+                    <li>支持歌曲分享链接导入</li>
                     <li>支持歌单批量导入</li>
                     <li>自动获取歌词和封面</li>
                 </ul>
                 
-                <p style="text-align: center; margin-top: 20px; opacity: 0.7;">
-                    版本 1.0.3 | 作者：hy.禾一
+                <h3 style="color: #ffa500;">⚠️ 重要提示</h3>
+                <div style="background: rgba(255,165,0,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #ffa500; margin-bottom: 15px;">
+                    <p style="margin: 0 0 8px 0; line-height: 1.6;">
+                        <strong>关于歌曲缓存：</strong><br>
+                        歌曲导入后若未播放过，刷新页面后可能出现播放失败的情况。已提供<strong>「一键缓存」</strong>功能和<strong>自动检测修复</strong>机制，但仍可能存在小问题。
+                    </p>
+                    <p style="margin: 0 0 8px 0; line-height: 1.6;">
+                        <strong>建议：</strong><br>
+                        • 歌单请分批少量导入<br>
+                        • 导入后及时播放以完成缓存
+                    </p>
+                    <p style="margin: 0; line-height: 1.6; opacity: 0.9;">
+                        <strong>注：</strong>网易云分享链接使用第三方API解析（已获原作者授权），未来可能因不可抗力失效。已提供备选方案：URL直链导入、本地文件导入。
+                    </p>
+                </div>
+                
+                <h3>📜 声明</h3>
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; line-height: 1.8;">
+                    <p style="margin: 0 0 8px 0;">
+                        本扩展暂未在任何平台公开发布，仅在群内分享。
+                    </p>
+                    <p style="margin: 0 0 8px 0;">
+                        🚫 <strong>禁止二次传播</strong>，但允许私人分享。
+                    </p>
+                    <p style="margin: 0;">
+                        如有Bug反馈或功能建议，欢迎联系作者：<br>
+                        <strong style="color: #7eb8c9;">QQ: 2027932654</strong>
+                    </p>
+                </div>
+                
+                <p style="text-align: center; margin-top: 20px; opacity: 0.6; font-size: 12px;">
+                    版本 1.0.3 | 作者：hy.禾一<br>
+                    感谢使用，食用愉快 ♪(･ω･)ﾉ
                 </p>
             </div>
         `;
