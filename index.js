@@ -1,6 +1,6 @@
 /*
  * 音乐播放器扩展入口
- * 版本: 1.0.3
+ * 版本: 1.0.5
  * 作者: hy.禾一
  */
 
@@ -203,7 +203,7 @@
                 </div>
                 
                 <p style="text-align: center; margin-top: 20px; opacity: 0.6; font-size: 12px;">
-                    版本 1.0.3 | 作者：hy.禾一<br>
+                    版本 1.0.5 | 作者：hy.禾一<br>
                     感谢使用，食用愉快 ♪(･ω･)ﾉ
                 </p>
             </div>
