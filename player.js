@@ -46,7 +46,8 @@
             cfg: { ...defaultConfig },
             playerPos: { x: 20, y: 100 },
             rhythmIconPos: { x: 20, y: 300 },
-            importHistory: []
+            importHistory: [],
+            isCaching: false
         },
         drag: { active: false, offX: 0, offY: 0 },
 
@@ -76,6 +77,7 @@
                 }
             }
             this.state.panel = false;
+            this.state.isCaching = false;
             this.updateView();
             this.renderList();
         },
@@ -379,7 +381,7 @@
                 
                 const activeLine = container.querySelector('.pure-lyric-line.active');
                 if (activeLine) {
-                    activeLine.style.setProperty('--progress', progress + '%');
+                    activeLine.style.setProperty('--lyric-progress', progress + '%');
                 }
             }
         },
@@ -408,16 +410,163 @@
             }
         },
 
-        play(i) {
+        async play(i) {
             if (!this.playlist[i]) return;
             this.index = i;
-            this.audio.src = this.playlist[i].url;
+            
+            const track = this.playlist[i];
+            
+            // 检测链接是否有效，如果是网易云歌曲则重新获取链接
+            if (track.neteaseId) {
+                const isValid = await this.checkUrlValid(track.url);
+                if (!isValid) {
+                    this.showStatus('链接已失效，正在重新获取...', 'info');
+                    try {
+                        const newUrl = await this.refreshSongUrl(track.neteaseId);
+                        if (newUrl) {
+                            track.url = newUrl;
+                            this.saveData();
+                        }
+                    } catch (error) {
+                        this.showStatus('获取播放链接失败', 'error');
+                        return;
+                    }
+                }
+            }
+            
+            this.audio.src = track.url;
             this.audio.playbackRate = this.state.speed;
             this.audio.play().catch(e => console.log(e));
-            this.state.lyrics = this.playlist[i].lyrics ? this.parseLyrics(this.playlist[i].lyrics) : [];
+            this.state.lyrics = track.lyrics ? this.parseLyrics(track.lyrics) : [];
             this.state.currentLyricIndex = -1;
             this.updateView();
             this.renderList();
+        },
+
+        async checkUrlValid(url) {
+            if (!url) return false;
+            try {
+                const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+                return true;
+            } catch (error) {
+                return false;
+            }
+        },
+
+        async refreshSongUrl(neteaseId) {
+            try {
+                const urlResponse = await fetch('https://wyapi-1.toubiec.cn/api/music/url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        id: `music.163.com/song?id=${neteaseId}`, 
+                        level: 'exhigh'
+                    })
+                });
+                
+                if (!urlResponse.ok) {
+                    throw new Error('获取播放链接失败');
+                }
+                
+                const urlData = await urlResponse.json();
+                
+                if (urlData.code !== 200) {
+                    throw new Error(urlData.msg || '获取播放链接失败');
+                }
+                
+                let playUrl = '';
+                if (urlData.data && Array.isArray(urlData.data) && urlData.data[0]) {
+                    playUrl = urlData.data[0].url || '';
+                }
+                
+                return playUrl;
+            } catch (error) {
+                console.error('刷新链接失败:', error);
+                throw error;
+            }
+        },
+
+        async cacheAllSongs() {
+            if (this.state.isCaching) {
+                this.showStatus('正在缓存中，请稍候...', 'info');
+                return;
+            }
+            
+            const neteaseSongs = this.playlist.filter(t => t.neteaseId);
+            if (neteaseSongs.length === 0) {
+                this.showStatus('没有需要缓存的网易云歌曲', 'info');
+                return;
+            }
+            
+            this.state.isCaching = true;
+            this.updateCacheProgress(0, neteaseSongs.length);
+            
+            let successCount = 0;
+            let failCount = 0;
+            
+            for (let i = 0; i < this.playlist.length; i++) {
+                const track = this.playlist[i];
+                if (!track.neteaseId) continue;
+                
+                try {
+                    const newUrl = await this.refreshSongUrl(track.neteaseId);
+                    if (newUrl) {
+                        track.url = newUrl;
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (error) {
+                    failCount++;
+                }
+                
+                this.updateCacheProgress(successCount + failCount, neteaseSongs.length);
+                
+                // 延迟避免请求过快
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            
+            this.state.isCaching = false;
+            this.saveData();
+            this.hideCacheProgress();
+            
+            if (failCount === 0) {
+                this.showStatus(`缓存完成！共 ${successCount} 首歌曲`, 'success');
+            } else {
+                this.showStatus(`缓存完成！成功 ${successCount} 首，失败 ${failCount} 首`, 'info');
+            }
+        },
+
+        updateCacheProgress(current, total) {
+            let progressEl = document.getElementById('cache-progress-overlay');
+            if (!progressEl) {
+                progressEl = document.createElement('div');
+                progressEl.id = 'cache-progress-overlay';
+                progressEl.innerHTML = `
+                    <div class="cache-progress-dialog">
+                        <div class="cache-progress-title">正在缓存歌曲</div>
+                        <div class="cache-progress-bar-wrap">
+                            <div class="cache-progress-bar"></div>
+                        </div>
+                        <div class="cache-progress-text">0 / 0</div>
+                    </div>
+                `;
+                document.body.appendChild(progressEl);
+            }
+            
+            const percent = total > 0 ? (current / total * 100) : 0;
+            const bar = progressEl.querySelector('.cache-progress-bar');
+            const text = progressEl.querySelector('.cache-progress-text');
+            
+            if (bar) bar.style.width = percent + '%';
+            if (text) text.textContent = `${current} / ${total}`;
+        },
+
+        hideCacheProgress() {
+            const progressEl = document.getElementById('cache-progress-overlay');
+            if (progressEl) {
+                progressEl.remove();
+            }
         },
 
         toggle() {
@@ -476,11 +625,11 @@
         parseLyrics(lrc) {
             const lines = lrc.split('\n');
             const result = [];
-            const regex = /$$(\d{2}):(\d{2})\.(\d{2,3})$$(.*)/;
+            const regex = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/;
             for (const line of lines) {
                 const match = line.match(regex);
                 if (match) {
-                    const time = parseInt(match[1]) * 60 + parseInt(match[2]) + parseInt(match[3]) / 1000;
+                    const time = parseInt(match[1]) * 60 + parseInt(match[2]) + parseInt(match[3]) / (match[3].length === 2 ? 100 : 1000);
                     const text = match[4].trim();
                     if (text) result.push({ time, text });
                 }
@@ -496,6 +645,17 @@
 
         isPlaylistLink(url) {
             return url.includes('playlist') || url.includes('playlist?id=');
+        },
+
+        extractNeteaseId(link) {
+            // 从链接中提取网易云歌曲ID
+            const idMatch = link.match(/id=(\d+)/);
+            if (idMatch) return idMatch[1];
+            
+            const pathMatch = link.match(/song\/(\d+)/);
+            if (pathMatch) return pathMatch[1];
+            
+            return null;
         },
 
         showAddOptions() {
@@ -603,13 +763,17 @@
                     throw new Error('无法获取播放链接');
                 }
                 
+                // 提取网易云ID用于后续刷新链接
+                const neteaseId = this.extractNeteaseId(link);
+                
                 return {
                     title: songInfo.name || '未知歌曲',
                     artist: songInfo.singer || '未知艺术家',
                     url: playUrl,
                     lyrics: lyrics,
                     cover: songInfo.picimg || defaultConfig.cover,
-                    duration: songInfo.duration || '0:00'
+                    duration: songInfo.duration || '0:00',
+                    neteaseId: neteaseId
                 };
                 
             } catch (error) {
@@ -652,7 +816,8 @@
                         artist: songInfo.artist,
                         url: songInfo.url,
                         lyrics: songInfo.lyrics || '',
-                        cover: songInfo.cover
+                        cover: songInfo.cover,
+                        neteaseId: songInfo.neteaseId
                     });
                     
                     this.addImportHistory('single', {
@@ -741,7 +906,8 @@
                             artist: track.artists,
                             url: songInfo.url,
                             lyrics: songInfo.lyrics || '',
-                            cover: track.picUrl || songInfo.cover
+                            cover: track.picUrl || songInfo.cover,
+                            neteaseId: track.id.toString()
                         });
                         
                         addedCount++;
@@ -1062,6 +1228,7 @@
             click('btn-add', () => this.showAddOptions());
             click('btn-pure', () => this.togglePureMode());
             click('player-pure-mode', () => this.togglePureMode());
+            click('btn-cache-all', () => this.cacheAllSongs());
 
             click('btn-cover-upload', () => {
                 this.createFileInput('image/*', (file) => {
@@ -1404,7 +1571,10 @@
 
                         <div id="panel-list" class="player-panel">
                             <div id="list-box" class="list-box"></div>
-                            <button type="button" id="btn-add" class="panel-add-btn">+ 添加歌曲</button>
+                            <div class="panel-list-btns">
+                                <button type="button" id="btn-add" class="panel-add-btn">+ 添加歌曲</button>
+                                <button type="button" id="btn-cache-all" class="panel-cache-btn">⟳ 一键缓存</button>
+                            </div>
                         </div>
                         
                         <div id="panel-history" class="player-panel">
@@ -1424,7 +1594,8 @@
         show(mode) {
             this.state.isRhythmMode = false;
             if (mode === 'rhythm') {
-                this.state.isRhythmMode = true            } else if (mode === 'pure') {
+                this.state.isRhythmMode = true;
+            } else if (mode === 'pure') {
                 this.state.isPureMode = true;
             }
             this.updateView();
@@ -1470,30 +1641,38 @@
                 /* ===== 动画定义 ===== */
                 @keyframes wave { 0%, 100% { height: 2px; } 50% { height: var(--h); } }
                 
-                /* 单色流动渐变 - 从浅到深循环 */
-                @keyframes single-flow {
+                /* 单色流动 - 真正的颜色位置移动 */
+                @keyframes single-color-flow {
                     0% { background-position: 0% 50%; }
                     100% { background-position: 200% 50%; }
                 }
                 
-                /* 单色呼吸效果 */
-                @keyframes single-breathe {
-                    0%, 100% { opacity: 0.6; filter: brightness(1.2); }
-                    50% { opacity: 1; filter: brightness(1); }
-                }
-                
-                /* 幻彩流动 */
-                @keyframes rainbow-flow {
+                /* 幻彩流动 - 真正的颜色位置移动 */
+                @keyframes rainbow-color-flow {
                     0% { background-position: 0% 50%; }
                     100% { background-position: 200% 50%; }
                 }
                 
-                /* 幻彩呼吸 - 颜色随机变化感 */
-                @keyframes rainbow-breathe {
-                    0%, 100% { opacity: 0.7; filter: hue-rotate(0deg) brightness(1.1); }
-                    25% { opacity: 1; filter: hue-rotate(30deg) brightness(1); }
-                    50% { opacity: 0.8; filter: hue-rotate(60deg) brightness(1.2); }
-                    75% { opacity: 1; filter: hue-rotate(-30deg) brightness(1); }
+                /* 律动条和星星的颜色闪烁变换 - 一次一种颜色 */
+                @keyframes color-flash-cycle {
+                    0%, 100% { color: #ff9a9e; text-shadow: 0 0 8px #ff9a9e; }
+                    14% { color: #fad0c4; text-shadow: 0 0 8px #fad0c4; }
+                    28% { color: #a8edea; text-shadow: 0 0 8px #a8edea; }
+                    42% { color: #fed6e3; text-shadow: 0 0 8px #fed6e3; }
+                    56% { color: #d299c2; text-shadow: 0 0 8px #d299c2; }
+                    70% { color: #89f7fe; text-shadow: 0 0 8px #89f7fe; }
+                    84% { color: #ffecd2; text-shadow: 0 0 8px #ffecd2; }
+                }
+                
+                /* 律动条背景颜色闪烁变换 */
+                @keyframes bar-color-flash {
+                    0%, 100% { background: #ff9a9e; box-shadow: 0 0 6px #ff9a9e; }
+                    14% { background: #fad0c4; box-shadow: 0 0 6px #fad0c4; }
+                    28% { background: #a8edea; box-shadow: 0 0 6px #a8edea; }
+                    42% { background: #fed6e3; box-shadow: 0 0 6px #fed6e3; }
+                    56% { background: #d299c2; box-shadow: 0 0 6px #d299c2; }
+                    70% { background: #89f7fe; box-shadow: 0 0 6px #89f7fe; }
+                    84% { background: #ffecd2; box-shadow: 0 0 6px #ffecd2; }
                 }
                 
                 /* 星星闪烁动画 - 左边星星 */
@@ -1503,14 +1682,67 @@
                     60% { opacity: 0.5; transform: scale(0.8); }
                 }
                 
-                /* 星星闪烁动画 - 右边星星（不同频率） */
+                /* 星星闪烁动画 - 右边星星 */
                 @keyframes star-twinkle-right {
                     0%, 100% { opacity: 0.4; transform: scale(0.7); }
                     40% { opacity: 1; transform: scale(1.3); }
                     70% { opacity: 0.6; transform: scale(0.9); }
                 }
 
-                /* ===== 弹窗样式（修复z-index） ===== */
+                /* ===== 缓存进度弹窗 ===== */
+                #cache-progress-overlay {
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    bottom: 0 !important;
+                    background: rgba(0, 0, 0, 0.8) !important;
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    z-index: 2147483647 !important;
+                }
+                
+                .cache-progress-dialog {
+                    background: #2a2a2a;
+                    border-radius: 16px;
+                    padding: 30px 40px;
+                    text-align: center;
+                    color: #fff;
+                    min-width: 280px;
+                }
+                
+                .cache-progress-title {
+                    font-size: 16px;
+                    margin-bottom: 20px;
+                    font-weight: bold;
+                }
+                
+                .cache-progress-bar-wrap {
+                    width: 100%;
+                    height: 8px;
+                    background: rgba(255,255,255,0.1);
+                    border-radius: 4px;
+                    overflow: hidden;
+                    margin-bottom: 15px;
+                }
+                
+                .cache-progress-bar {
+                    height: 100%;
+                    width: 0%;
+                    background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+                    background-size: 300% 100%;
+                    animation: rainbow-color-flow 2s linear infinite;
+                    border-radius: 4px;
+                    transition: width 0.3s ease;
+                }
+                
+                .cache-progress-text {
+                    font-size: 14px;
+                    opacity: 0.8;
+                }
+
+                /* ===== 弹窗样式 ===== */
                 .player-dialog-overlay {
                     position: fixed !important;
                     top: 0 !important;
@@ -1661,24 +1893,19 @@
                     animation: star-twinkle-right 2s ease-in-out infinite;
                 }
                 
-                /* 星星RGB效果 */
+                /* 星星单色RGB效果 */
                 .player-rhythm-icon.rgb-single .rhythm-star {
                     color: var(--rgb-single);
                     text-shadow: 0 0 10px var(--rgb-single);
                 }
                 
+                /* 星星幻彩RGB效果 - 闪烁变换颜色 */
                 .player-rhythm-icon.rgb-rainbow .rhythm-star {
-                    background: linear-gradient(90deg, 
-                        hsl(0, 60%, 75%), hsl(60, 60%, 75%), hsl(120, 60%, 75%), 
-                        hsl(180, 60%, 75%), hsl(240, 60%, 75%), hsl(300, 60%, 75%), hsl(360, 60%, 75%));
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                    animation: star-twinkle-left 1.5s ease-in-out infinite, rainbow-breathe 3s ease-in-out infinite;
+                    animation: star-twinkle-left 1.5s ease-in-out infinite, color-flash-cycle 3s linear infinite;
                 }
                 
                 .player-rhythm-icon.rgb-rainbow .rhythm-star.star-right {
-                    animation: star-twinkle-right 2s ease-in-out infinite, rainbow-breathe 3s ease-in-out infinite 0.5s;
+                    animation: star-twinkle-right 2s ease-in-out infinite, color-flash-cycle 3s linear infinite 0.5s;
                 }
 
                 .rhythm-left-zone,
@@ -1719,7 +1946,7 @@
                     box-sizing: border-box;
                 }
                 
-                /* 律动条 - 从下往上渐变 */
+                /* 律动条默认样式 */
                 .rhythm-bar { 
                     width: 3px; 
                     height: 2px; 
@@ -1745,7 +1972,7 @@
                     animation-delay: var(--d); 
                 }
                 
-                /* 律动条单色模式 - 渐变从下到上 */
+                /* 律动条单色模式 */
                 .player-rhythm-icon.rgb-single .rhythm-bar { 
                     background: linear-gradient(to top, 
                         var(--rgb-single),
@@ -1759,24 +1986,20 @@
                     box-shadow: 0 0 5px var(--rgb-single); 
                 }
                 
-                /* 律动条幻彩模式 */
+                /* 律动条幻彩模式 - 音频条闪烁变换颜色 */
                 .player-rhythm-icon.rgb-rainbow .rhythm-bar { 
-                    background: linear-gradient(to top,
-                        hsl(0, 60%, 75%), hsl(60, 60%, 75%), hsl(120, 60%, 75%),
-                        hsl(180, 60%, 75%), hsl(240, 60%, 75%)
-                    );
-                    background-size: 100% 200%;
-                    animation: wave var(--s) infinite ease-in-out alternate, rainbow-breathe 3s ease-in-out infinite;
+                    animation: wave var(--s) infinite ease-in-out alternate, bar-color-flash 3s linear infinite;
                     animation-delay: var(--d), 0s;
                 }
                 
+                /* 律动条幻彩模式 - 底部线保持流动渐变 */
                 .player-rhythm-icon.rgb-rainbow .rhythm-base-line { 
                     background: linear-gradient(90deg,
                         hsl(0, 60%, 75%), hsl(60, 60%, 75%), hsl(120, 60%, 75%),
                         hsl(180, 60%, 75%), hsl(240, 60%, 75%), hsl(300, 60%, 75%), hsl(360, 60%, 75%)
                     );
                     background-size: 200% 100%;
-                    animation: rainbow-flow 4s linear infinite;
+                    animation: rainbow-color-flow 4s linear infinite;
                 }
 
                 /* ===== 播放器主体 ===== */
@@ -1799,7 +2022,7 @@
                 }
                 #player-root.expanded { height: 520px !important; }
 
-                /* RGB边框 - 单色模式：渐变流动+呼吸 */
+                /* RGB边框 - 单色模式：真正的流动效果 */
                 .player-rgb-border { 
                     position: absolute; 
                     inset: 0; 
@@ -1813,30 +2036,31 @@
                 
                 .player-rgb-border.mode-single { 
                     background: linear-gradient(90deg,
-                        color-mix(in srgb, var(--rgb-single) 30%, white),
-                        color-mix(in srgb, var(--rgb-single) 50%, white),
                         var(--rgb-single),
-                        color-mix(in srgb, var(--rgb-single) 80%, black),
-                        color-mix(in srgb, var(--rgb-single) 60%, black),
+                        color-mix(in srgb, var(--rgb-single) 60%, white),
+                        color-mix(in srgb, var(--rgb-single) 80%, white),
                         var(--rgb-single),
-                        color-mix(in srgb, var(--rgb-single) 50%, white),
-                        color-mix(in srgb, var(--rgb-single) 30%, white)
+                        color-mix(in srgb, var(--rgb-single) 70%, black),
+                        color-mix(in srgb, var(--rgb-single) 50%, black),
+                        var(--rgb-single),
+                        color-mix(in srgb, var(--rgb-single) 60%, white),
+                        var(--rgb-single)
                     ) !important;
                     background-size: 200% 100% !important;
-                    animation: single-flow 3s linear infinite, single-breathe 2s ease-in-out infinite !important;
+                    animation: single-color-flow 3s linear infinite !important;
                 }
                 
-                /* RGB边框 - 幻彩模式：多色流动+呼吸 */
+                /* RGB边框 - 幻彩模式：真正的流动效果 */
                 .player-rgb-border.mode-rainbow { 
                     background: linear-gradient(90deg,
-                        hsl(0, 55%, 75%), hsl(30, 55%, 75%), hsl(60, 55%, 75%),
-                        hsl(90, 55%, 75%), hsl(120, 55%, 75%), hsl(150, 55%, 75%),
-                        hsl(180, 55%, 75%), hsl(210, 55%, 75%), hsl(240, 55%, 75%),
-                        hsl(270, 55%, 75%), hsl(300, 55%, 75%), hsl(330, 55%, 75%),
-                        hsl(360, 55%, 75%)
+                        hsl(0, 70%, 70%), hsl(30, 70%, 70%), hsl(60, 70%, 70%),
+                        hsl(90, 70%, 70%), hsl(120, 70%, 70%), hsl(150, 70%, 70%),
+                        hsl(180, 70%, 70%), hsl(210, 70%, 70%), hsl(240, 70%, 70%),
+                        hsl(270, 70%, 70%), hsl(300, 70%, 70%), hsl(330, 70%, 70%),
+                        hsl(360, 70%, 70%)
                     ) !important;
                     background-size: 200% 100% !important;
-                    animation: rainbow-flow 4s linear infinite, rainbow-breathe 3s ease-in-out infinite !important;
+                    animation: rainbow-color-flow 4s linear infinite !important;
                 }
 
                 .player-inner {
@@ -1877,27 +2101,26 @@
                 /* 灵动岛单色流动效果 */
                 .player-island.rgb-single-flow {
                     background: linear-gradient(90deg,
-                        color-mix(in srgb, var(--rgb-single) 30%, white),
-                        color-mix(in srgb, var(--rgb-single) 50%, white),
                         var(--rgb-single),
-                        color-mix(in srgb, var(--rgb-single) 80%, black),
+                        color-mix(in srgb, var(--rgb-single) 60%, white),
+                        color-mix(in srgb, var(--rgb-single) 80%, white),
                         var(--rgb-single),
-                        color-mix(in srgb, var(--rgb-single) 50%, white),
-                        color-mix(in srgb, var(--rgb-single) 30%, white)
+                        color-mix(in srgb, var(--rgb-single) 70%, black),
+                        var(--rgb-single)
                     ) !important;
                     background-size: 200% 100% !important;
-                    animation: single-flow 3s linear infinite, single-breathe 2s ease-in-out infinite !important;
+                    animation: single-color-flow 3s linear infinite !important;
                     box-shadow: 0 0 15px var(--rgb-single) !important;
                 }
 
                 /* 灵动岛幻彩流动效果 */
                 .player-island.rgb-rainbow-flow {
                     background: linear-gradient(90deg,
-                        hsl(0, 55%, 75%), hsl(60, 55%, 75%), hsl(120, 55%, 75%),
-                        hsl(180, 55%, 75%), hsl(240, 55%, 75%), hsl(300, 55%, 75%), hsl(360, 55%, 75%)
+                        hsl(0, 70%, 70%), hsl(60, 70%, 70%), hsl(120, 70%, 70%),
+                        hsl(180, 70%, 70%), hsl(240, 70%, 70%), hsl(300, 70%, 70%), hsl(360, 70%, 70%)
                     ) !important;
                     background-size: 200% 100% !important;
-                    animation: rainbow-flow 4s linear infinite, rainbow-breathe 3s ease-in-out infinite !important;
+                    animation: rainbow-color-flow 4s linear infinite !important;
                     box-shadow: 0 0 15px rgba(126, 184, 201, 0.5) !important;
                 }
                 
@@ -2046,14 +2269,16 @@
                     line-height: 1.5;
                 }
 
+                /* 歌词渐变效果修复 */
                 .pure-lyric-line.active {
                     font-size: 22px;
                     font-weight: bold;
                     opacity: 1;
                     background: linear-gradient(90deg, 
-                        var(--lyrics-start) var(--progress, 0%), 
-                        var(--lyrics-end) var(--progress, 0%), 
-                        rgba(255,255,255,0.6) var(--progress, 0%));
+                        var(--lyrics-start) 0%, 
+                        var(--lyrics-start) var(--lyric-progress, 0%), 
+                        var(--lyrics-end) var(--lyric-progress, 0%), 
+                        rgba(255,255,255,0.5) 100%);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
                     background-clip: text;
@@ -2114,7 +2339,7 @@
                 
                 .panel-bg-ctrl { display: flex; gap: 5px; align-items: center; }
                 
-                .panel-upload-btn, .panel-add-btn {
+                .panel-upload-btn, .panel-add-btn, .panel-cache-btn {
                     padding: 5px 10px;
                     background: rgba(255,255,255,0.1);
                     border: 1px solid rgba(255,255,255,0.2);
@@ -2124,8 +2349,42 @@
                     font-size: 11px;
                     transition: all 0.2s;
                 }
-                .panel-upload-btn:hover, .panel-add-btn:hover {
+                .panel-upload-btn:hover, .panel-add-btn:hover, .panel-cache-btn:hover {
                     background: rgba(255,255,255,0.2);
+                }
+                
+                .panel-list-btns {
+                    display: flex;
+                    gap: 10px;
+                    margin-top: 10px;
+                }
+                
+                .panel-add-btn {
+                    flex: 1;
+                    padding: 12px;
+                    background: var(--rgb-single);
+                    border: none;
+                    cursor: pointer;
+                    font-weight: bold;
+                    border-radius: 8px;
+                    color: #000;
+                    font-size: 13px;
+                }
+                
+                .panel-cache-btn {
+                    flex: 1;
+                    padding: 12px;
+                    background: rgba(255,255,255,0.15);
+                    border: 1px solid rgba(255,255,255,0.3);
+                    cursor: pointer;
+                    font-weight: bold;
+                    border-radius: 8px;
+                    color: inherit;
+                    font-size: 13px;
+                }
+                
+                .panel-cache-btn:hover {
+                    background: rgba(255,255,255,0.25);
                 }
                 
                 .panel-opt-group { 
@@ -2196,19 +2455,6 @@
                     color: #f55; 
                     cursor: pointer; 
                     font-size: 18px; 
-                }
-                
-                .panel-add-btn { 
-                    width: 100%; 
-                    padding: 12px; 
-                    background: var(--rgb-single); 
-                    border: none; 
-                    cursor: pointer; 
-                    font-weight: bold; 
-                    border-radius: 8px; 
-                    color: #000; 
-                    margin-top: 10px; 
-                    font-size: 13px;
                 }
 
                 /* 导入历史 */
