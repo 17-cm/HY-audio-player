@@ -1,6 +1,6 @@
 /*
  * 音乐播放器核心逻辑
- * 版本: 1.0.3
+ * 版本: 1.0.5
  * 作者: hy.禾一
  */
 
@@ -200,10 +200,10 @@
                 if (mode === 0) {
                     island.style.background = cfg.borderColor;
                 } else if (mode === 1) {
-                    island.classList.add('rgb-single-flow');
+                    island.classList.add('rgb-single-breathe');
                     island.style.setProperty('--rgb-single', cfg.rgbColor);
                 } else if (mode === 2) {
-                    island.classList.add('rgb-rainbow-flow');
+                    island.classList.add('rgb-rainbow-breathe');
                 }
             }
 
@@ -418,19 +418,30 @@
             
             // 检测链接是否有效，如果是网易云歌曲则重新获取链接
             if (track.neteaseId) {
-                const isValid = await this.checkUrlValid(track.url);
-                if (!isValid) {
-                    this.showStatus('链接已失效，正在重新获取...', 'info');
-                    try {
+                try {
+                    const testAudio = new Audio();
+                    testAudio.src = track.url;
+                    
+                    const canPlay = await new Promise((resolve) => {
+                        testAudio.oncanplay = () => resolve(true);
+                        testAudio.onerror = () => resolve(false);
+                        setTimeout(() => resolve(false), 5000);
+                    });
+                    
+                    if (!canPlay) {
+                        this.showStatus('链接已失效，正在重新获取...', 'info');
                         const newUrl = await this.refreshSongUrl(track.neteaseId);
                         if (newUrl) {
                             track.url = newUrl;
                             this.saveData();
+                            this.showStatus('链接已更新', 'success');
+                        } else {
+                            this.showStatus('获取播放链接失败', 'error');
+                            return;
                         }
-                    } catch (error) {
-                        this.showStatus('获取播放链接失败', 'error');
-                        return;
                     }
+                } catch (error) {
+                    console.error('链接检测失败:', error);
                 }
             }
             
@@ -441,16 +452,6 @@
             this.state.currentLyricIndex = -1;
             this.updateView();
             this.renderList();
-        },
-
-        async checkUrlValid(url) {
-            if (!url) return false;
-            try {
-                const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
-                return true;
-            } catch (error) {
-                return false;
-            }
         },
 
         async refreshSongUrl(neteaseId) {
@@ -482,7 +483,7 @@
                 return playUrl;
             } catch (error) {
                 console.error('刷新链接失败:', error);
-                throw error;
+                return null;
             }
         },
 
@@ -499,10 +500,11 @@
             }
             
             this.state.isCaching = true;
-            this.updateCacheProgress(0, neteaseSongs.length);
+            this.showCacheProgress(0, neteaseSongs.length);
             
             let successCount = 0;
             let failCount = 0;
+            let processedCount = 0;
             
             for (let i = 0; i < this.playlist.length; i++) {
                 const track = this.playlist[i];
@@ -518,12 +520,14 @@
                     }
                 } catch (error) {
                     failCount++;
+                    console.error(`缓存歌曲失败: ${track.title}`, error);
                 }
                 
-                this.updateCacheProgress(successCount + failCount, neteaseSongs.length);
+                processedCount++;
+                this.updateCacheProgress(processedCount, neteaseSongs.length, track.title);
                 
                 // 延迟避免请求过快
-                await new Promise(resolve => setTimeout(resolve, 200));
+                await new Promise(resolve => setTimeout(resolve, 300));
             }
             
             this.state.isCaching = false;
@@ -537,29 +541,39 @@
             }
         },
 
-        updateCacheProgress(current, total) {
+        showCacheProgress(current, total) {
             let progressEl = document.getElementById('cache-progress-overlay');
             if (!progressEl) {
                 progressEl = document.createElement('div');
                 progressEl.id = 'cache-progress-overlay';
+                progressEl.className = 'player-dialog-overlay';
                 progressEl.innerHTML = `
                     <div class="cache-progress-dialog">
                         <div class="cache-progress-title">正在缓存歌曲</div>
+                        <div class="cache-progress-song"></div>
                         <div class="cache-progress-bar-wrap">
                             <div class="cache-progress-bar"></div>
                         </div>
                         <div class="cache-progress-text">0 / 0</div>
+                        <div class="cache-progress-tip">请勿关闭页面...</div>
                     </div>
                 `;
                 document.body.appendChild(progressEl);
             }
+        },
+
+        updateCacheProgress(current, total, songName) {
+            const progressEl = document.getElementById('cache-progress-overlay');
+            if (!progressEl) return;
             
             const percent = total > 0 ? (current / total * 100) : 0;
             const bar = progressEl.querySelector('.cache-progress-bar');
             const text = progressEl.querySelector('.cache-progress-text');
+            const song = progressEl.querySelector('.cache-progress-song');
             
             if (bar) bar.style.width = percent + '%';
             if (text) text.textContent = `${current} / ${total}`;
+            if (song) song.textContent = songName || '';
         },
 
         hideCacheProgress() {
@@ -648,7 +662,6 @@
         },
 
         extractNeteaseId(link) {
-            // 从链接中提取网易云歌曲ID
             const idMatch = link.match(/id=(\d+)/);
             if (idMatch) return idMatch[1];
             
@@ -656,6 +669,40 @@
             if (pathMatch) return pathMatch[1];
             
             return null;
+        },
+
+        showConfirmDialog(title, message, onConfirm, onCancel) {
+            const overlay = document.createElement('div');
+            overlay.className = 'player-dialog-overlay';
+            
+            overlay.innerHTML = `
+                <div class="player-dialog">
+                    <div class="dialog-title">${title}</div>
+                    <div class="dialog-message">${message}</div>
+                    <div class="dialog-buttons">
+                        <button type="button" class="dialog-btn-cancel">取消</button>
+                        <button type="button" class="dialog-btn-confirm">确定</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            overlay.querySelector('.dialog-btn-confirm').onclick = () => {
+                overlay.remove();
+                if (onConfirm) onConfirm();
+            };
+
+            overlay.querySelector('.dialog-btn-cancel').onclick = () => {
+                overlay.remove();
+                if (onCancel) onCancel();
+            };
+
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    if (onCancel) onCancel();
+                }
+            };
         },
 
         showAddOptions() {
@@ -699,10 +746,42 @@
             };
         },
 
+        showInputDialog(title, placeholder, onConfirm) {
+            const overlay = document.createElement('div');
+            overlay.className = 'player-dialog-overlay';
+            
+            overlay.innerHTML = `
+                <div class="player-dialog">
+                    <div class="dialog-title">${title}</div>
+                    <textarea class="dialog-input" placeholder="${placeholder}" rows="3"></textarea>
+                    <div class="dialog-buttons">
+                        <button type="button" class="dialog-btn-cancel">取消</button>
+                        <button type="button" class="dialog-btn-confirm">确定</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            const input = overlay.querySelector('.dialog-input');
+            input.focus();
+
+            overlay.querySelector('.dialog-btn-confirm').onclick = () => {
+                const value = input.value.trim();
+                overlay.remove();
+                if (value && onConfirm) onConfirm(value);
+            };
+
+            overlay.querySelector('.dialog-btn-cancel').onclick = () => {
+                overlay.remove();
+            };
+
+            overlay.onclick = (e) => {
+                if (e.target === overlay) overlay.remove();
+            };
+        },
+
         async fetchNeteaseSongInfo(link) {
             try {
-                this.showStatus('正在解析链接...', 'info');
-                
                 const detailResponse = await fetch('https://wyapi-1.toubiec.cn/api/music/detail', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -741,17 +820,21 @@
                 }
                 
                 let lyrics = '';
-                const lyricResponse = await fetch('https://wyapi-1.toubiec.cn/api/music/lyric', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: link })
-                });
-                
-                if (lyricResponse.ok) {
-                    const lyricData = await lyricResponse.json();
-                    if (lyricData.code === 200) {
-                        lyrics = lyricData.data.lrc || '';
+                try {
+                    const lyricResponse = await fetch('https://wyapi-1.toubiec.cn/api/music/lyric', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: link })
+                    });
+                    
+                    if (lyricResponse.ok) {
+                        const lyricData = await lyricResponse.json();
+                        if (lyricData.code === 200) {
+                            lyrics = lyricData.data.lrc || '';
+                        }
                     }
+                } catch (e) {
+                    console.log('歌词获取失败，跳过');
                 }
                 
                 let playUrl = '';
@@ -763,7 +846,6 @@
                     throw new Error('无法获取播放链接');
                 }
                 
-                // 提取网易云ID用于后续刷新链接
                 const neteaseId = this.extractNeteaseId(link);
                 
                 return {
@@ -778,174 +860,168 @@
                 
             } catch (error) {
                 console.error('网易云解析失败:', error);
-                this.showStatus(`解析失败: ${error.message}`, 'error');
                 throw error;
             }
         },
 
         addUrlSong() {
-            const input = prompt('请输入网易云歌曲链接：\n支持格式：\n• music.163.com/song?id=xxx\n• y.music.163.com/m/song/xxx\n• 163cn.tv/xxx（短链接）');
-            if (!input) return;
-            
-            if (!this.isNeteaseLink(input)) {
-                const title = prompt('歌名:', 'Untitled') || 'Untitled';
-                const artist = prompt('歌手:', 'Unknown') || 'Unknown';
-                
-                this.playlist.push({
-                    title: title,
-                    artist: artist,
-                    url: input,
-                    lyrics: '',
-                    cover: defaultConfig.cover
-                });
-                
-                this.saveData();
-                this.renderList();
-                this.showStatus('歌曲添加成功！', 'success');
-                
-                if (this.index === -1) {
-                    this.play(this.playlist.length - 1);
-                }
-                return;
-            }
-            
-            this.fetchNeteaseSongInfo(input)
-                .then(songInfo => {
-                    this.playlist.push({
-                        title: songInfo.title,
-                        artist: songInfo.artist,
-                        url: songInfo.url,
-                        lyrics: songInfo.lyrics || '',
-                        cover: songInfo.cover,
-                        neteaseId: songInfo.neteaseId
-                    });
-                    
-                    this.addImportHistory('single', {
-                        title: songInfo.title,
-                        artist: songInfo.artist,
-                        link: input
-                    });
-                    
-                    this.saveData();
-                    this.renderList();
-                    this.showStatus(`成功添加: ${songInfo.title}`, 'success');
-                    
-                    if (this.index === -1) {
-                        this.play(this.playlist.length - 1);
+            this.showInputDialog(
+                '添加单曲',
+                '请输入网易云歌曲链接\n支持格式：\n• music.163.com/song?id=xxx\n• 163cn.tv/xxx（短链接）',
+                async (input) => {
+                    if (!this.isNeteaseLink(input)) {
+                        this.showStatus('请输入有效的网易云链接', 'error');
+                        return;
                     }
-                })
-                .catch(error => {
-                    console.error('添加失败:', error);
-                });
+                    
+                    this.showStatus('正在解析链接...', 'info');
+                    
+                    try {
+                        const songInfo = await this.fetchNeteaseSongInfo(input);
+                        
+                        this.playlist.push({
+                            title: songInfo.title,
+                            artist: songInfo.artist,
+                            url: songInfo.url,
+                            lyrics: songInfo.lyrics || '',
+                            cover: songInfo.cover,
+                            neteaseId: songInfo.neteaseId
+                        });
+                        
+                        this.addImportHistory('single', {
+                            title: songInfo.title,
+                            artist: songInfo.artist,
+                            link: input
+                        });
+                        
+                        this.saveData();
+                        this.renderList();
+                        this.showStatus(`成功添加: ${songInfo.title}`, 'success');
+                        
+                        if (this.index === -1) {
+                            this.play(this.playlist.length - 1);
+                        }
+                    } catch (error) {
+                        this.showStatus(`添加失败: ${error.message}`, 'error');
+                    }
+                }
+            );
         },
 
         async fetchNeteasePlaylist(link) {
-            try {
-                this.showStatus('正在解析歌单...', 'info');
-                
-                const response = await fetch('https://wyapi-1.toubiec.cn/api/music/playlist', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: link })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('获取歌单失败');
-                }
-                
-                const data = await response.json();
-                
-                if (data.code !== 200) {
-                    throw new Error(data.msg || 'API返回错误');
-                }
-                
-                const playlist = data.data;
-                return playlist;
-                
-            } catch (error) {
-                console.error('歌单解析失败:', error);
-                this.showStatus(`歌单解析失败: ${error.message}`, 'error');
-                throw error;
+            const response = await fetch('https://wyapi-1.toubiec.cn/api/music/playlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: link })
+            });
+            
+            if (!response.ok) {
+                throw new Error('获取歌单失败');
             }
+            
+            const data = await response.json();
+            
+            if (data.code !== 200) {
+                throw new Error(data.msg || 'API返回错误');
+            }
+            
+            return data.data;
         },
 
-        async addPlaylist() {
-            const input = prompt('请输入网易云歌单链接：\n支持格式：\n• music.163.com/playlist?id=xxx\n• y.music.163.com/m/playlist?id=xxx');
-            if (!input) return;
-            
-            if (!this.isPlaylistLink(input)) {
-                this.showStatus('这不是有效的歌单链接', 'error');
-                return;
-            }
-            
-            try {
-                const playlist = await this.fetchNeteasePlaylist(input);
-                
-                if (!playlist.tracks || playlist.tracks.length === 0) {
-                    this.showStatus('歌单为空或无法获取歌曲列表', 'error');
-                    return;
-                }
-                
-                const confirmed = confirm(`发现歌单: ${playlist.name}\n创建者: ${playlist.creator}\n共 ${playlist.tracks.length} 首歌曲\n\n是否全部添加到播放列表？`);
-                if (!confirmed) return;
-                
-                this.showStatus(`正在导入 ${playlist.tracks.length} 首歌曲...`, 'info');
-                
-                let addedCount = 0;
-                let failedCount = 0;
-                
-                for (let i = 0; i < playlist.tracks.length; i++) {
-                    const track = playlist.tracks[i];
-                    const link = `music.163.com/song?id=${track.id}`;
+        addPlaylist() {
+            this.showInputDialog(
+                '添加歌单',
+                '请输入网易云歌单链接\n支持格式：\n• music.163.com/playlist?id=xxx\n• 163cn.tv/xxx（短链接）',
+                async (input) => {
+                    if (!this.isPlaylistLink(input) && !this.isNeteaseLink(input)) {
+                        this.showStatus('请输入有效的歌单链接', 'error');
+                        return;
+                    }
+                    
+                    this.showStatus('正在解析歌单...', 'info');
                     
                     try {
-                        const songInfo = await this.fetchNeteaseSongInfo(link);
+                        const playlist = await this.fetchNeteasePlaylist(input);
                         
-                        this.playlist.push({
-                            title: track.name,
-                            artist: track.artists,
-                            url: songInfo.url,
-                            lyrics: songInfo.lyrics || '',
-                            cover: track.picUrl || songInfo.cover,
-                            neteaseId: track.id.toString()
-                        });
-                        
-                        addedCount++;
-                        
-                        if ((i + 1) % 5 === 0 || i === playlist.tracks.length - 1) {
-                            this.showStatus(`已导入 ${i + 1}/${playlist.tracks.length} 首歌曲`, 'info');
+                        if (!playlist.tracks || playlist.tracks.length === 0) {
+                            this.showStatus('歌单为空或无法获取歌曲列表', 'error');
+                            return;
                         }
                         
-                        await new Promise(resolve => setTimeout(resolve, 100));
+                        this.showConfirmDialog(
+                            '确认导入',
+                            `<div style="text-align:left;line-height:1.8;">
+                                <p><strong>歌单：</strong>${playlist.name}</p>
+                                <p><strong>创建者：</strong>${playlist.creator}</p>
+                                <p><strong>歌曲数：</strong>${playlist.tracks.length} 首</p>
+                                <p style="margin-top:10px;opacity:0.8;">是否全部添加到播放列表？</p>
+                            </div>`,
+                            () => this.importPlaylistTracks(playlist, input)
+                        );
                         
                     } catch (error) {
-                        console.error(`歌曲 ${track.name} 导入失败:`, error);
-                        failedCount++;
+                        this.showStatus(`歌单解析失败: ${error.message}`, 'error');
                     }
                 }
+            );
+        },
+
+        async importPlaylistTracks(playlist, link) {
+            this.showStatus(`正在导入 ${playlist.tracks.length} 首歌曲...`, 'info');
+            this.showCacheProgress(0, playlist.tracks.length);
+            
+            let addedCount = 0;
+            let failedCount = 0;
+            
+            for (let i = 0; i < playlist.tracks.length; i++) {
+                const track = playlist.tracks[i];
+                const songLink = `music.163.com/song?id=${track.id}`;
                 
-                this.addImportHistory('playlist', {
-                    name: playlist.name,
-                    creator: playlist.creator,
-                    count: playlist.tracks.length,
-                    link: input
-                });
+                this.updateCacheProgress(i + 1, playlist.tracks.length, track.name);
                 
-                this.saveData();
-                this.renderList();
-                
-                if (addedCount > 0) {
-                    this.showStatus(`歌单导入完成！成功 ${addedCount} 首，失败 ${failedCount} 首`, 'success');
-                } else {
-                    this.showStatus('没有歌曲成功导入', 'error');
+                try {
+                    const songInfo = await this.fetchNeteaseSongInfo(songLink);
+                    
+                    this.playlist.push({
+                        title: track.name,
+                        artist: track.artists,
+                        url: songInfo.url,
+                        lyrics: songInfo.lyrics || '',
+                        cover: track.picUrl || songInfo.cover,
+                        neteaseId: track.id.toString()
+                    });
+                    
+                    addedCount++;
+                    
+                } catch (error) {
+                    console.error(`歌曲 ${track.name} 导入失败:`, error);
+                    failedCount++;
                 }
                 
-                if (this.index === -1 && this.playlist.length > 0) {
-                    this.play(0);
-                }
-                
-            } catch (error) {
-                console.error('歌单导入失败:', error);
+                // 延迟避免请求过快
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            
+            this.hideCacheProgress();
+            
+            this.addImportHistory('playlist', {
+                name: playlist.name,
+                creator: playlist.creator,
+                count: playlist.tracks.length,
+                link: link
+            });
+            
+            this.saveData();
+            this.renderList();
+            
+            if (addedCount > 0) {
+                this.showStatus(`歌单导入完成！成功 ${addedCount} 首，失败 ${failedCount} 首`, 'success');
+            } else {
+                this.showStatus('没有歌曲成功导入', 'error');
+            }
+            
+            if (this.index === -1 && this.playlist.length > 0) {
+                this.play(0);
             }
         },
 
@@ -1014,15 +1090,18 @@
         },
 
         delSong(i) {
-            if (!confirm('删除?')) return;
-            this.playlist.splice(i, 1);
-            this.saveData();
-            this.renderList();
-            if (i === this.index) {
-                this.audio.pause();
-                this.index = -1;
-                this.updateView();
-            }
+            this.showConfirmDialog('删除歌曲', '确定要删除这首歌曲吗？', () => {
+                this.playlist.splice(i, 1);
+                this.saveData();
+                this.renderList();
+                if (i === this.index) {
+                    this.audio.pause();
+                    this.index = -1;
+                    this.updateView();
+                } else if (i < this.index) {
+                    this.index--;
+                }
+            });
         },
 
         showLyricsDialog(i) {
@@ -1043,16 +1122,15 @@
 
             overlay.querySelector('#lyrics-paste-btn').onclick = () => {
                 overlay.remove();
-                const currentLyrics = this.playlist[i].lyrics || '';
-                const newLyrics = prompt('粘贴LRC格式歌词:', currentLyrics);
-                if (newLyrics !== null) {
+                this.showInputDialog('粘贴歌词', '请粘贴LRC格式歌词', (newLyrics) => {
                     this.playlist[i].lyrics = newLyrics;
                     if (i === this.index) {
                         this.state.lyrics = this.parseLyrics(newLyrics);
                         this.state.currentLyricIndex = -1;
                     }
                     this.saveData();
-                }
+                    this.showStatus('歌词已更新', 'success');
+                });
             };
 
             overlay.querySelector('#lyrics-import-btn').onclick = () => {
@@ -1572,8 +1650,8 @@
                         <div id="panel-list" class="player-panel">
                             <div id="list-box" class="list-box"></div>
                             <div class="panel-list-btns">
-                                <button type="button" id="btn-add" class="panel-add-btn">+ 添加歌曲</button>
-                                <button type="button" id="btn-cache-all" class="panel-cache-btn">⟳ 一键缓存</button>
+                                <button type="button" id="btn-add" class="panel-action-btn">+ 添加歌曲</button>
+                                <button type="button" id="btn-cache-all" class="panel-action-btn">⟳ 一键缓存</button>
                             </div>
                         </div>
                         
@@ -1641,48 +1719,104 @@
                 /* ===== 动画定义 ===== */
                 @keyframes wave { 0%, 100% { height: 2px; } 50% { height: var(--h); } }
                 
-                /* 单色流动 - 真正的颜色位置移动 */
-                @keyframes single-color-flow {
-                    0% { background-position: 0% 50%; }
-                    100% { background-position: 200% 50%; }
+                /* 单色呼吸效果 - 一闪一闪 */
+                @keyframes single-breathe {
+                    0%, 100% { 
+                        opacity: 0.5; 
+                        box-shadow: 0 0 8px var(--rgb-single);
+                    }
+                    50% { 
+                        opacity: 1; 
+                        box-shadow: 0 0 20px var(--rgb-single), 0 0 30px var(--rgb-single);
+                    }
                 }
                 
-                /* 幻彩流动 - 真正的颜色位置移动 */
-                @keyframes rainbow-color-flow {
-                    0% { background-position: 0% 50%; }
-                    100% { background-position: 200% 50%; }
+                /* 幻彩呼吸效果 - 变幻颜色的呼吸感 */
+                @keyframes rainbow-breathe {
+                    0% { 
+                        background-color: hsl(0, 70%, 75%); 
+                        box-shadow: 0 0 15px hsl(0, 70%, 75%);
+                        opacity: 0.6;
+                    }
+                    10% { 
+                        background-color: hsl(36, 70%, 75%); 
+                        box-shadow: 0 0 25px hsl(36, 70%, 75%);
+                        opacity: 1;
+                    }
+                    20% { 
+                        background-color: hsl(72, 70%, 75%); 
+                        box-shadow: 0 0 15px hsl(72, 70%, 75%);
+                        opacity: 0.7;
+                    }
+                    30% { 
+                        background-color: hsl(108, 70%, 75%); 
+                        box-shadow: 0 0 25px hsl(108, 70%, 75%);
+                        opacity: 1;
+                    }
+                    40% { 
+                        background-color: hsl(144, 70%, 75%); 
+                        box-shadow: 0 0 15px hsl(144, 70%, 75%);
+                        opacity: 0.6;
+                    }
+                    50% { 
+                        background-color: hsl(180, 70%, 75%); 
+                        box-shadow: 0 0 25px hsl(180, 70%, 75%);
+                        opacity: 1;
+                    }
+                    60% { 
+                        background-color: hsl(216, 70%, 75%); 
+                        box-shadow: 0 0 15px hsl(216, 70%, 75%);
+                        opacity: 0.7;
+                    }
+                    70% { 
+                        background-color: hsl(252, 70%, 75%); 
+                        box-shadow: 0 0 25px hsl(252, 70%, 75%);
+                        opacity: 1;
+                    }
+                    80% { 
+                        background-color: hsl(288, 70%, 75%); 
+                        box-shadow: 0 0 15px hsl(288, 70%, 75%);
+                        opacity: 0.6;
+                    }
+                    90% { 
+                        background-color: hsl(324, 70%, 75%); 
+                        box-shadow: 0 0 25px hsl(324, 70%, 75%);
+                        opacity: 1;
+                    }
+                    100% { 
+                        background-color: hsl(360, 70%, 75%); 
+                        box-shadow: 0 0 15px hsl(360, 70%, 75%);
+                        opacity: 0.6;
+                    }
                 }
                 
-                /* 律动条和星星的颜色闪烁变换 - 一次一种颜色 */
+                /* 律动条和星星的颜色闪烁变换 */
                 @keyframes color-flash-cycle {
-                    0%, 100% { color: #ff9a9e; text-shadow: 0 0 8px #ff9a9e; }
-                    14% { color: #fad0c4; text-shadow: 0 0 8px #fad0c4; }
-                    28% { color: #a8edea; text-shadow: 0 0 8px #a8edea; }
-                    42% { color: #fed6e3; text-shadow: 0 0 8px #fed6e3; }
-                    56% { color: #d299c2; text-shadow: 0 0 8px #d299c2; }
-                    70% { color: #89f7fe; text-shadow: 0 0 8px #89f7fe; }
-                    84% { color: #ffecd2; text-shadow: 0 0 8px #ffecd2; }
+                    0%, 100% { color: hsl(350, 80%, 80%); text-shadow: 0 0 10px hsl(350, 80%, 80%); }
+                    16% { color: hsl(40, 80%, 80%); text-shadow: 0 0 10px hsl(40, 80%, 80%); }
+                    33% { color: hsl(160, 80%, 80%); text-shadow: 0 0 10px hsl(160, 80%, 80%); }
+                    50% { color: hsl(200, 80%, 80%); text-shadow: 0 0 10px hsl(200, 80%, 80%); }
+                    66% { color: hsl(280, 80%, 80%); text-shadow: 0 0 10px hsl(280, 80%, 80%); }
+                    83% { color: hsl(320, 80%, 80%); text-shadow: 0 0 10px hsl(320, 80%, 80%); }
                 }
                 
                 /* 律动条背景颜色闪烁变换 */
                 @keyframes bar-color-flash {
-                    0%, 100% { background: #ff9a9e; box-shadow: 0 0 6px #ff9a9e; }
-                    14% { background: #fad0c4; box-shadow: 0 0 6px #fad0c4; }
-                    28% { background: #a8edea; box-shadow: 0 0 6px #a8edea; }
-                    42% { background: #fed6e3; box-shadow: 0 0 6px #fed6e3; }
-                    56% { background: #d299c2; box-shadow: 0 0 6px #d299c2; }
-                    70% { background: #89f7fe; box-shadow: 0 0 6px #89f7fe; }
-                    84% { background: #ffecd2; box-shadow: 0 0 6px #ffecd2; }
+                    0%, 100% { background: hsl(350, 80%, 80%); box-shadow: 0 0 6px hsl(350, 80%, 80%); }
+                    16% { background: hsl(40, 80%, 80%); box-shadow: 0 0 6px hsl(40, 80%, 80%); }
+                    33% { background: hsl(160, 80%, 80%); box-shadow: 0 0 6px hsl(160, 80%, 80%); }
+                    50% { background: hsl(200, 80%, 80%); box-shadow: 0 0 6px hsl(200, 80%, 80%); }
+                    66% { background: hsl(280, 80%, 80%); box-shadow: 0 0 6px hsl(280, 80%, 80%); }
+                    83% { background: hsl(320, 80%, 80%); box-shadow: 0 0 6px hsl(320, 80%, 80%); }
                 }
                 
-                /* 星星闪烁动画 - 左边星星 */
+                /* 星星闪烁动画 */
                 @keyframes star-twinkle-left {
                     0%, 100% { opacity: 0.3; transform: scale(0.6); }
                     30% { opacity: 1; transform: scale(1.2); }
                     60% { opacity: 0.5; transform: scale(0.8); }
                 }
                 
-                /* 星星闪烁动画 - 右边星星 */
                 @keyframes star-twinkle-right {
                     0%, 100% { opacity: 0.4; transform: scale(0.7); }
                     40% { opacity: 1; transform: scale(1.3); }
@@ -1690,32 +1824,32 @@
                 }
 
                 /* ===== 缓存进度弹窗 ===== */
-                #cache-progress-overlay {
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    right: 0 !important;
-                    bottom: 0 !important;
-                    background: rgba(0, 0, 0, 0.8) !important;
-                    display: flex !important;
-                    justify-content: center !important;
-                    align-items: center !important;
-                    z-index: 2147483647 !important;
-                }
-                
                 .cache-progress-dialog {
                     background: #2a2a2a;
                     border-radius: 16px;
                     padding: 30px 40px;
                     text-align: center;
                     color: #fff;
-                    min-width: 280px;
+                    min-width: 300px;
+                    max-width: 90%;
                 }
                 
                 .cache-progress-title {
-                    font-size: 16px;
-                    margin-bottom: 20px;
+                    font-size: 18px;
+                    margin-bottom: 15px;
                     font-weight: bold;
+                }
+                
+                .cache-progress-song {
+                    font-size: 13px;
+                    opacity: 0.8;
+                    margin-bottom: 15px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    max-width: 250px;
+                    margin-left: auto;
+                    margin-right: auto;
                 }
                 
                 .cache-progress-bar-wrap {
@@ -1730,16 +1864,21 @@
                 .cache-progress-bar {
                     height: 100%;
                     width: 0%;
-                    background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
-                    background-size: 300% 100%;
-                    animation: rainbow-color-flow 2s linear infinite;
+                    background: linear-gradient(90deg, #7eb8c9, #c9a7eb, #7eb8c9);
+                    background-size: 200% 100%;
                     border-radius: 4px;
                     transition: width 0.3s ease;
                 }
                 
                 .cache-progress-text {
                     font-size: 14px;
-                    opacity: 0.8;
+                    opacity: 0.9;
+                    margin-bottom: 10px;
+                }
+                
+                .cache-progress-tip {
+                    font-size: 12px;
+                    opacity: 0.5;
                 }
 
                 /* ===== 弹窗样式 ===== */
@@ -1779,6 +1918,71 @@
                     font-size: 18px;
                     font-weight: bold;
                     margin-bottom: 20px;
+                }
+                
+                .player-dialog .dialog-message {
+                    font-size: 14px;
+                    line-height: 1.6;
+                    margin-bottom: 20px;
+                    opacity: 0.9;
+                }
+                
+                .player-dialog .dialog-input {
+                    width: 100%;
+                    padding: 12px;
+                    border: 1px solid rgba(255,255,255,0.2);
+                    border-radius: 8px;
+                    background: rgba(255,255,255,0.1);
+                    color: #fff;
+                    font-size: 14px;
+                    margin-bottom: 20px;
+                    box-sizing: border-box;
+                    resize: none;
+                }
+                
+                .player-dialog .dialog-input::placeholder {
+                    color: rgba(255,255,255,0.5);
+                }
+                
+                .player-dialog .dialog-input:focus {
+                    outline: none;
+                    border-color: #7eb8c9;
+                }
+                
+                .player-dialog .dialog-buttons {
+                    display: flex;
+                    gap: 12px;
+                    justify-content: center;
+                }
+                
+                .player-dialog .dialog-btn-confirm,
+                .player-dialog .dialog-btn-cancel {
+                    padding: 10px 30px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    transition: all 0.2s;
+                    border: none;
+                }
+                
+                .player-dialog .dialog-btn-confirm {
+                    background: #7eb8c9;
+                    color: #000;
+                    font-weight: bold;
+                }
+                
+                .player-dialog .dialog-btn-confirm:hover {
+                    background: #9ed0df;
+                }
+                
+                .player-dialog .dialog-btn-cancel {
+                    background: rgba(255,255,255,0.1);
+                    color: #fff;
+                    border: 1px solid rgba(255,255,255,0.3);
+                }
+                
+                .player-dialog .dialog-btn-cancel:hover {
+                    background: rgba(255,255,255,0.2);
                 }
                 
                 .player-dialog .add-options,
@@ -1899,7 +2103,7 @@
                     text-shadow: 0 0 10px var(--rgb-single);
                 }
                 
-                /* 星星幻彩RGB效果 - 闪烁变换颜色 */
+                /* 星星幻彩RGB效果 */
                 .player-rhythm-icon.rgb-rainbow .rhythm-star {
                     animation: star-twinkle-left 1.5s ease-in-out infinite, color-flash-cycle 3s linear infinite;
                 }
@@ -1986,7 +2190,7 @@
                     box-shadow: 0 0 5px var(--rgb-single); 
                 }
                 
-                /* 律动条幻彩模式 - 音频条闪烁变换颜色 */
+                /* 律动条幻彩模式 */
                 .player-rhythm-icon.rgb-rainbow .rhythm-bar { 
                     animation: wave var(--s) infinite ease-in-out alternate, bar-color-flash 3s linear infinite;
                     animation-delay: var(--d), 0s;
@@ -1995,11 +2199,16 @@
                 /* 律动条幻彩模式 - 底部线保持流动渐变 */
                 .player-rhythm-icon.rgb-rainbow .rhythm-base-line { 
                     background: linear-gradient(90deg,
-                        hsl(0, 60%, 75%), hsl(60, 60%, 75%), hsl(120, 60%, 75%),
-                        hsl(180, 60%, 75%), hsl(240, 60%, 75%), hsl(300, 60%, 75%), hsl(360, 60%, 75%)
+                        hsl(0, 70%, 75%), hsl(60, 70%, 75%), hsl(120, 70%, 75%),
+                        hsl(180, 70%, 75%), hsl(240, 70%, 75%), hsl(300, 70%, 75%), hsl(360, 70%, 75%)
                     );
                     background-size: 200% 100%;
-                    animation: rainbow-color-flow 4s linear infinite;
+                    animation: rainbow-flow 4s linear infinite;
+                }
+                
+                @keyframes rainbow-flow {
+                    0% { background-position: 0% 50%; }
+                    100% { background-position: 200% 50%; }
                 }
 
                 /* ===== 播放器主体 ===== */
@@ -2022,7 +2231,7 @@
                 }
                 #player-root.expanded { height: 520px !important; }
 
-                /* RGB边框 - 单色模式：真正的流动效果 */
+                /* RGB边框 - 单色模式：呼吸闪烁效果 */
                 .player-rgb-border { 
                     position: absolute; 
                     inset: 0; 
@@ -2035,32 +2244,13 @@
                 }
                 
                 .player-rgb-border.mode-single { 
-                    background: linear-gradient(90deg,
-                        var(--rgb-single),
-                        color-mix(in srgb, var(--rgb-single) 60%, white),
-                        color-mix(in srgb, var(--rgb-single) 80%, white),
-                        var(--rgb-single),
-                        color-mix(in srgb, var(--rgb-single) 70%, black),
-                        color-mix(in srgb, var(--rgb-single) 50%, black),
-                        var(--rgb-single),
-                        color-mix(in srgb, var(--rgb-single) 60%, white),
-                        var(--rgb-single)
-                    ) !important;
-                    background-size: 200% 100% !important;
-                    animation: single-color-flow 3s linear infinite !important;
+                    background: var(--rgb-single) !important;
+                    animation: single-breathe 2s ease-in-out infinite !important;
                 }
                 
-                /* RGB边框 - 幻彩模式：真正的流动效果 */
+                /* RGB边框 - 幻彩模式：变幻颜色呼吸效果 */
                 .player-rgb-border.mode-rainbow { 
-                    background: linear-gradient(90deg,
-                        hsl(0, 70%, 70%), hsl(30, 70%, 70%), hsl(60, 70%, 70%),
-                        hsl(90, 70%, 70%), hsl(120, 70%, 70%), hsl(150, 70%, 70%),
-                        hsl(180, 70%, 70%), hsl(210, 70%, 70%), hsl(240, 70%, 70%),
-                        hsl(270, 70%, 70%), hsl(300, 70%, 70%), hsl(330, 70%, 70%),
-                        hsl(360, 70%, 70%)
-                    ) !important;
-                    background-size: 200% 100% !important;
-                    animation: rainbow-color-flow 4s linear infinite !important;
+                    animation: rainbow-breathe 6s linear infinite !important;
                 }
 
                 .player-inner {
@@ -2098,32 +2288,17 @@
                     overflow: hidden;
                 }
 
-                /* 灵动岛单色流动效果 */
-                .player-island.rgb-single-flow {
-                    background: linear-gradient(90deg,
-                        var(--rgb-single),
-                        color-mix(in srgb, var(--rgb-single) 60%, white),
-                        color-mix(in srgb, var(--rgb-single) 80%, white),
-                        var(--rgb-single),
-                        color-mix(in srgb, var(--rgb-single) 70%, black),
-                        var(--rgb-single)
-                    ) !important;
-                    background-size: 200% 100% !important;
-                    animation: single-color-flow 3s linear infinite !important;
-                    box-shadow: 0 0 15px var(--rgb-single) !important;
+                /* 灵动岛单色呼吸效果 */
+                .player-island.rgb-single-breathe {
+                    background: var(--rgb-single) !important;
+                    animation: single-breathe 2s ease-in-out infinite !important;
                 }
 
-                /* 灵动岛幻彩流动效果 */
-                .player-island.rgb-rainbow-flow {
-                    background: linear-gradient(90deg,
-                        hsl(0, 70%, 70%), hsl(60, 70%, 70%), hsl(120, 70%, 70%),
-                        hsl(180, 70%, 70%), hsl(240, 70%, 70%), hsl(300, 70%, 70%), hsl(360, 70%, 70%)
-                    ) !important;
-                    background-size: 200% 100% !important;
-                    animation: rainbow-color-flow 4s linear infinite !important;
-                    box-shadow: 0 0 15px rgba(126, 184, 201, 0.5) !important;
+                /* 灵动岛幻彩呼吸效果 */
+                .player-island.rgb-rainbow-breathe {
+                    animation: rainbow-breathe 6s linear infinite !important;
                 }
-                
+
                 .player-main { 
                     display: flex; 
                     height: 100%; 
@@ -2269,7 +2444,7 @@
                     line-height: 1.5;
                 }
 
-                /* 歌词渐变效果修复 */
+                /* 歌词渐变效果 */
                 .pure-lyric-line.active {
                     font-size: 22px;
                     font-weight: bold;
@@ -2339,7 +2514,7 @@
                 
                 .panel-bg-ctrl { display: flex; gap: 5px; align-items: center; }
                 
-                .panel-upload-btn, .panel-add-btn, .panel-cache-btn {
+                .panel-upload-btn {
                     padding: 5px 10px;
                     background: rgba(255,255,255,0.1);
                     border: 1px solid rgba(255,255,255,0.2);
@@ -2349,7 +2524,7 @@
                     font-size: 11px;
                     transition: all 0.2s;
                 }
-                .panel-upload-btn:hover, .panel-add-btn:hover, .panel-cache-btn:hover {
+                .panel-upload-btn:hover {
                     background: rgba(255,255,255,0.2);
                 }
                 
@@ -2359,32 +2534,27 @@
                     margin-top: 10px;
                 }
                 
-                .panel-add-btn {
+                /* 统一的操作按钮样式 */
+                .panel-action-btn {
                     flex: 1;
                     padding: 12px;
-                    background: var(--rgb-single);
-                    border: none;
-                    cursor: pointer;
-                    font-weight: bold;
-                    border-radius: 8px;
-                    color: #000;
-                    font-size: 13px;
-                }
-                
-                .panel-cache-btn {
-                    flex: 1;
-                    padding: 12px;
-                    background: rgba(255,255,255,0.15);
-                    border: 1px solid rgba(255,255,255,0.3);
+                    background: rgba(255,255,255,0.1);
+                    border: 1px solid rgba(255,255,255,0.25);
                     cursor: pointer;
                     font-weight: bold;
                     border-radius: 8px;
                     color: inherit;
                     font-size: 13px;
+                    transition: all 0.2s;
                 }
                 
-                .panel-cache-btn:hover {
-                    background: rgba(255,255,255,0.25);
+                .panel-action-btn:hover {
+                    background: rgba(255,255,255,0.2);
+                    border-color: rgba(255,255,255,0.4);
+                }
+                
+                .panel-action-btn:active {
+                    transform: scale(0.98);
                 }
                 
                 .panel-opt-group { 
