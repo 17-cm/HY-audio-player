@@ -1724,7 +1724,7 @@
             }
             
             this.updateView();
-        }
+        },
 
         injectCSS() {
             const css = `
