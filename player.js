@@ -4,6 +4,9 @@
  * 作者: hy.禾一
  */
 
+// 声明全局变量（从酒馆获取）
+/* global extension_settings, saveSettingsDebounced */
+
 (function() {
     'use strict';
 
@@ -52,17 +55,28 @@
         drag: { active: false, offX: 0, offY: 0 },
 
         init() {
-            this.injectCSS();
+            this.loadCSS();
             this.createUI();
             this.loadData();
             this.bindEvents();
             console.log('🎵 播放器核心初始化完成');
         },
 
+        loadCSS() {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = '/scripts/extensions/third-party/HY-audio-player/style.css';
+            link.onload = () => console.log('✅ 播放器样式加载完成');
+            link.onerror = () => console.error('❌ 播放器样式加载失败');
+            document.head.appendChild(link);
+        },
+
         loadData() {
-            const raw = localStorage.getItem('music_player_data');
-            if (raw) {
-                const data = JSON.parse(raw);
+            const EXTENSION_NAME = 'music_player_data';
+            
+            // 优先从酒馆扩展设置读取
+            if (typeof extension_settings !== 'undefined' && extension_settings[EXTENSION_NAME]) {
+                const data = extension_settings[EXTENSION_NAME];
                 this.playlist = data.playlist || [];
                 if (data.state) {
                     this.state = { ...this.state, ...data.state };
@@ -75,7 +89,27 @@
                     checkPos(this.state.playerPos, defaultConfig.pos);
                     checkPos(this.state.rhythmIconPos, { x: 20, y: 300 });
                 }
+            } 
+            // 降级到 localStorage（兼容旧数据或独立使用）
+            else {
+                const raw = localStorage.getItem('music_player_data');
+                if (raw) {
+                    const data = JSON.parse(raw);
+                    this.playlist = data.playlist || [];
+                    if (data.state) {
+                        this.state = { ...this.state, ...data.state };
+                        this.state.cfg = { ...defaultConfig, ...data.state.cfg };
+                        
+                        const checkPos = (pos, def) => {
+                            if (pos.x > window.innerWidth - 50) pos.x = def.x;
+                            if (pos.y > window.innerHeight - 50) pos.y = def.y;
+                        };
+                        checkPos(this.state.playerPos, defaultConfig.pos);
+                        checkPos(this.state.rhythmIconPos, { x: 20, y: 300 });
+                    }
+                }
             }
+            
             this.state.panel = false;
             this.state.isCaching = false;
             this.updateView();
@@ -83,10 +117,21 @@
         },
 
         saveData() {
-            localStorage.setItem('music_player_data', JSON.stringify({
+            const EXTENSION_NAME = 'music_player_data';
+            const data = {
                 playlist: this.playlist,
                 state: this.state
-            }));
+            };
+            
+            // 优先保存到酒馆扩展设置
+            if (typeof extension_settings !== 'undefined' && typeof saveSettingsDebounced !== 'undefined') {
+                extension_settings[EXTENSION_NAME] = data;
+                saveSettingsDebounced();
+            } 
+            // 降级到 localStorage
+            else {
+                localStorage.setItem('music_player_data', JSON.stringify(data));
+            }
         },
 
         showStatus(message, type = 'info', duration = 3000) {
@@ -169,7 +214,7 @@
             }
             return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
         },
-        
+
         updateView() {
             const root = document.getElementById('player-root');
             const rootRgb = document.getElementById('player-rgb-border');
@@ -558,7 +603,11 @@
                         <div class="cache-progress-tip">请勿关闭页面...</div>
                     </div>
                 `;
-                document.body.appendChild(progressEl);
+                
+                // 优先挂到酒馆扩展容器，降级到 body
+                const container = document.getElementById('extensions_settings')?.parentElement 
+                               || document.body;
+                container.appendChild(progressEl);
             }
         },
 
@@ -685,7 +734,11 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(overlay);
+            
+            // 优先挂到酒馆扩展容器，降级到 body
+            const container = document.getElementById('extensions_settings')?.parentElement 
+                           || document.body;
+            container.appendChild(overlay);
 
             overlay.querySelector('.dialog-btn-confirm').onclick = () => {
                 overlay.remove();
@@ -725,7 +778,11 @@
                     <button type="button" id="add-cancel-btn" class="dialog-cancel">取消</button>
                 </div>
             `;
-            document.body.appendChild(overlay);
+            
+            // 优先挂到酒馆扩展容器，降级到 body
+            const container = document.getElementById('extensions_settings')?.parentElement 
+                           || document.body;
+            container.appendChild(overlay);
 
             overlay.querySelector('#add-single-btn').onclick = () => {
                 overlay.remove();
@@ -760,7 +817,11 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(overlay);
+            
+            // 优先挂到酒馆扩展容器，降级到 body
+            const container = document.getElementById('extensions_settings')?.parentElement 
+                           || document.body;
+            container.appendChild(overlay);
 
             const input = overlay.querySelector('.dialog-input');
             input.focus();
@@ -1118,7 +1179,11 @@
                     <button type="button" id="lyrics-cancel-btn" class="dialog-cancel">取消</button>
                 </div>
             `;
-            document.body.appendChild(overlay);
+            
+            // 优先挂到酒馆扩展容器，降级到 body
+            const container = document.getElementById('extensions_settings')?.parentElement 
+                           || document.body;
+            container.appendChild(overlay);
 
             overlay.querySelector('#lyrics-paste-btn').onclick = () => {
                 overlay.remove();
@@ -1712,999 +1777,6 @@
             }
             
             this.updateView();
-        },
-
-        injectCSS() {
-            const css = `
-                /* ===== 动画定义 ===== */
-                @keyframes wave { 0%, 100% { height: 2px; } 50% { height: var(--h); } }
-                
-                /* 单色呼吸效果 - 一闪一闪 */
-                @keyframes single-breathe {
-                    0%, 100% { 
-                        opacity: 0.5; 
-                        box-shadow: 0 0 8px var(--rgb-single);
-                    }
-                    50% { 
-                        opacity: 1; 
-                        box-shadow: 0 0 20px var(--rgb-single), 0 0 30px var(--rgb-single);
-                    }
-                }
-                
-                /* 幻彩呼吸效果 - 变幻颜色的呼吸感 */
-                @keyframes rainbow-breathe {
-                    0% { 
-                        background-color: hsl(0, 70%, 75%); 
-                        box-shadow: 0 0 15px hsl(0, 70%, 75%);
-                        opacity: 0.6;
-                    }
-                    10% { 
-                        background-color: hsl(36, 70%, 75%); 
-                        box-shadow: 0 0 25px hsl(36, 70%, 75%);
-                        opacity: 1;
-                    }
-                    20% { 
-                        background-color: hsl(72, 70%, 75%); 
-                        box-shadow: 0 0 15px hsl(72, 70%, 75%);
-                        opacity: 0.7;
-                    }
-                    30% { 
-                        background-color: hsl(108, 70%, 75%); 
-                        box-shadow: 0 0 25px hsl(108, 70%, 75%);
-                        opacity: 1;
-                    }
-                    40% { 
-                        background-color: hsl(144, 70%, 75%); 
-                        box-shadow: 0 0 15px hsl(144, 70%, 75%);
-                        opacity: 0.6;
-                    }
-                    50% { 
-                        background-color: hsl(180, 70%, 75%); 
-                        box-shadow: 0 0 25px hsl(180, 70%, 75%);
-                        opacity: 1;
-                    }
-                    60% { 
-                        background-color: hsl(216, 70%, 75%); 
-                        box-shadow: 0 0 15px hsl(216, 70%, 75%);
-                        opacity: 0.7;
-                    }
-                    70% { 
-                        background-color: hsl(252, 70%, 75%); 
-                        box-shadow: 0 0 25px hsl(252, 70%, 75%);
-                        opacity: 1;
-                    }
-                    80% { 
-                        background-color: hsl(288, 70%, 75%); 
-                        box-shadow: 0 0 15px hsl(288, 70%, 75%);
-                        opacity: 0.6;
-                    }
-                    90% { 
-                        background-color: hsl(324, 70%, 75%); 
-                        box-shadow: 0 0 25px hsl(324, 70%, 75%);
-                        opacity: 1;
-                    }
-                    100% { 
-                        background-color: hsl(360, 70%, 75%); 
-                        box-shadow: 0 0 15px hsl(360, 70%, 75%);
-                        opacity: 0.6;
-                    }
-                }
-                
-                /* 律动条和星星的颜色闪烁变换 */
-                @keyframes color-flash-cycle {
-                    0%, 100% { color: hsl(350, 80%, 80%); text-shadow: 0 0 10px hsl(350, 80%, 80%); }
-                    16% { color: hsl(40, 80%, 80%); text-shadow: 0 0 10px hsl(40, 80%, 80%); }
-                    33% { color: hsl(160, 80%, 80%); text-shadow: 0 0 10px hsl(160, 80%, 80%); }
-                    50% { color: hsl(200, 80%, 80%); text-shadow: 0 0 10px hsl(200, 80%, 80%); }
-                    66% { color: hsl(280, 80%, 80%); text-shadow: 0 0 10px hsl(280, 80%, 80%); }
-                    83% { color: hsl(320, 80%, 80%); text-shadow: 0 0 10px hsl(320, 80%, 80%); }
-                }
-                
-                /* 律动条背景颜色闪烁变换 */
-                @keyframes bar-color-flash {
-                    0%, 100% { background: hsl(350, 80%, 80%); box-shadow: 0 0 6px hsl(350, 80%, 80%); }
-                    16% { background: hsl(40, 80%, 80%); box-shadow: 0 0 6px hsl(40, 80%, 80%); }
-                    33% { background: hsl(160, 80%, 80%); box-shadow: 0 0 6px hsl(160, 80%, 80%); }
-                    50% { background: hsl(200, 80%, 80%); box-shadow: 0 0 6px hsl(200, 80%, 80%); }
-                    66% { background: hsl(280, 80%, 80%); box-shadow: 0 0 6px hsl(280, 80%, 80%); }
-                    83% { background: hsl(320, 80%, 80%); box-shadow: 0 0 6px hsl(320, 80%, 80%); }
-                }
-                
-                /* 星星闪烁动画 */
-                @keyframes star-twinkle-left {
-                    0%, 100% { opacity: 0.3; transform: scale(0.6); }
-                    30% { opacity: 1; transform: scale(1.2); }
-                    60% { opacity: 0.5; transform: scale(0.8); }
-                }
-                
-                @keyframes star-twinkle-right {
-                    0%, 100% { opacity: 0.4; transform: scale(0.7); }
-                    40% { opacity: 1; transform: scale(1.3); }
-                    70% { opacity: 0.6; transform: scale(0.9); }
-                }
-
-                /* ===== 缓存进度弹窗 ===== */
-                .cache-progress-dialog {
-                    background: #2a2a2a;
-                    border-radius: 16px;
-                    padding: 30px 40px;
-                    text-align: center;
-                    color: #fff;
-                    min-width: 300px;
-                    max-width: 90%;
-                }
-                
-                .cache-progress-title {
-                    font-size: 18px;
-                    margin-bottom: 15px;
-                    font-weight: bold;
-                }
-                
-                .cache-progress-song {
-                    font-size: 13px;
-                    opacity: 0.8;
-                    margin-bottom: 15px;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    max-width: 250px;
-                    margin-left: auto;
-                    margin-right: auto;
-                }
-                
-                .cache-progress-bar-wrap {
-                    width: 100%;
-                    height: 8px;
-                    background: rgba(255,255,255,0.1);
-                    border-radius: 4px;
-                    overflow: hidden;
-                    margin-bottom: 15px;
-                }
-                
-                .cache-progress-bar {
-                    height: 100%;
-                    width: 0%;
-                    background: linear-gradient(90deg, #7eb8c9, #c9a7eb, #7eb8c9);
-                    background-size: 200% 100%;
-                    border-radius: 4px;
-                    transition: width 0.3s ease;
-                }
-                
-                .cache-progress-text {
-                    font-size: 14px;
-                    opacity: 0.9;
-                    margin-bottom: 10px;
-                }
-                
-                .cache-progress-tip {
-                    font-size: 12px;
-                    opacity: 0.5;
-                }
-
-                /* ===== 弹窗样式 ===== */
-                .player-dialog-overlay {
-                    position: fixed !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    right: 0 !important;
-                    bottom: 0 !important;
-                    background: rgba(0, 0, 0, 0.8) !important;
-                    display: flex !important;
-                    justify-content: center !important;
-                    align-items: center !important;
-                    z-index: 2147483647 !important;
-                    padding: 20px !important;
-                    box-sizing: border-box !important;
-                    overflow: auto !important;
-                }
-                
-                .player-dialog {
-                    background: #2a2a2a !important;
-                    border-radius: 16px !important;
-                    padding: 25px !important;
-                    max-width: 90% !important;
-                    width: 400px !important;
-                    max-height: 85vh !important;
-                    overflow-y: auto !important;
-                    text-align: center !important;
-                    color: #fff !important;
-                    box-shadow: 0 15px 35px rgba(0,0,0,0.5) !important;
-                    margin: auto !important;
-                    position: relative !important;
-                    z-index: 2147483647 !important;
-                }
-                
-                .player-dialog .dialog-title {
-                    font-size: 18px;
-                    font-weight: bold;
-                    margin-bottom: 20px;
-                }
-                
-                .player-dialog .dialog-message {
-                    font-size: 14px;
-                    line-height: 1.6;
-                    margin-bottom: 20px;
-                    opacity: 0.9;
-                }
-                
-                .player-dialog .dialog-input {
-                    width: 100%;
-                    padding: 12px;
-                    border: 1px solid rgba(255,255,255,0.2);
-                    border-radius: 8px;
-                    background: rgba(255,255,255,0.1);
-                    color: #fff;
-                    font-size: 14px;
-                    margin-bottom: 20px;
-                    box-sizing: border-box;
-                    resize: none;
-                }
-                
-                .player-dialog .dialog-input::placeholder {
-                    color: rgba(255,255,255,0.5);
-                }
-                
-                .player-dialog .dialog-input:focus {
-                    outline: none;
-                    border-color: #7eb8c9;
-                }
-                
-                .player-dialog .dialog-buttons {
-                    display: flex;
-                    gap: 12px;
-                    justify-content: center;
-                }
-                
-                .player-dialog .dialog-btn-confirm,
-                .player-dialog .dialog-btn-cancel {
-                    padding: 10px 30px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    transition: all 0.2s;
-                    border: none;
-                }
-                
-                .player-dialog .dialog-btn-confirm {
-                    background: #7eb8c9;
-                    color: #000;
-                    font-weight: bold;
-                }
-                
-                .player-dialog .dialog-btn-confirm:hover {
-                    background: #9ed0df;
-                }
-                
-                .player-dialog .dialog-btn-cancel {
-                    background: rgba(255,255,255,0.1);
-                    color: #fff;
-                    border: 1px solid rgba(255,255,255,0.3);
-                }
-                
-                .player-dialog .dialog-btn-cancel:hover {
-                    background: rgba(255,255,255,0.2);
-                }
-                
-                .player-dialog .add-options,
-                .player-dialog .lyrics-btns {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 15px;
-                    margin: 20px 0;
-                }
-                
-                .player-dialog .add-option-btn,
-                .player-dialog .dialog-btn {
-                    background: rgba(255,255,255,0.1);
-                    border: 2px solid rgba(255,255,255,0.2);
-                    border-radius: 12px;
-                    padding: 20px;
-                    cursor: pointer;
-                    transition: all 0.3s;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 10px;
-                    color: #fff;
-                }
-                
-                .player-dialog .add-option-btn:hover,
-                .player-dialog .dialog-btn:hover {
-                    background: rgba(255,255,255,0.2);
-                    border-color: rgba(255,255,255,0.4);
-                    transform: translateY(-2px);
-                }
-                
-                .player-dialog .option-icon {
-                    font-size: 32px;
-                    line-height: 1;
-                }
-                
-                .player-dialog .option-text {
-                    font-size: 16px;
-                    font-weight: bold;
-                }
-                
-                .player-dialog .dialog-cancel {
-                    background: transparent;
-                    border: 1px solid rgba(255,255,255,0.3);
-                    color: #fff;
-                    padding: 10px 25px;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    transition: all 0.2s;
-                }
-                
-                .player-dialog .dialog-cancel:hover {
-                    background: rgba(255,255,255,0.1);
-                }
-
-                /* ===== 状态提示 ===== */
-                .player-status {
-                    position: fixed !important;
-                    top: 20px !important;
-                    left: 50% !important;
-                    transform: translateX(-50%) !important;
-                    background: #7eb8c9 !important;
-                    color: white !important;
-                    padding: 12px 24px !important;
-                    border-radius: 25px !important;
-                    z-index: 2147483647 !important;
-                    font-size: 14px !important;
-                    opacity: 0 !important;
-                    transition: opacity 0.3s !important;
-                    pointer-events: none !important;
-                    box-shadow: 0 5px 20px rgba(0,0,0,0.3) !important;
-                }
-                .player-status.status-info { background: #7eb8c9 !important; }
-                .player-status.status-success { background: #7ec98b !important; }
-                .player-status.status-error { background: #c97e7e !important; }
-
-                /* ===== 律动图标 ===== */
-                .player-rhythm-icon {
-                    position: fixed; 
-                    z-index: 10000;
-                    width: 300px; 
-                    height: 50px;
-                    display: none; 
-                    flex-direction: column;
-                    align-items: center; 
-                    justify-content: flex-end;
-                    pointer-events: auto;
-                    --rgb-single: #7eb8c9;
-                    background: transparent;
-                }
-
-                /* 律动模式星星 */
-                .rhythm-star {
-                    position: absolute;
-                    top: -5px;
-                    font-size: 20px;
-                    color: #333;
-                    z-index: 15;
-                    pointer-events: none;
-                }
-                
-                .rhythm-star.star-left {
-                    left: 35px;
-                    animation: star-twinkle-left 1.5s ease-in-out infinite;
-                }
-                
-                .rhythm-star.star-right {
-                    right: 35px;
-                    animation: star-twinkle-right 2s ease-in-out infinite;
-                }
-                
-                /* 星星单色RGB效果 */
-                .player-rhythm-icon.rgb-single .rhythm-star {
-                    color: var(--rgb-single);
-                    text-shadow: 0 0 10px var(--rgb-single);
-                }
-                
-                /* 星星幻彩RGB效果 */
-                .player-rhythm-icon.rgb-rainbow .rhythm-star {
-                    animation: star-twinkle-left 1.5s ease-in-out infinite, color-flash-cycle 3s linear infinite;
-                }
-                
-                .player-rhythm-icon.rgb-rainbow .rhythm-star.star-right {
-                    animation: star-twinkle-right 2s ease-in-out infinite, color-flash-cycle 3s linear infinite 0.5s;
-                }
-
-                .rhythm-left-zone,
-                .rhythm-right-zone {
-                    position: absolute;
-                    top: 0;
-                    width: 50%;
-                    height: 100%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 10;
-                }
-                
-                .rhythm-left-zone { left: 0; cursor: grab; }
-                .rhythm-left-zone:active { cursor: grabbing; }
-                .rhythm-right-zone { right: 0; cursor: pointer; }
-
-                .zone-hint {
-                    font-size: 10px;
-                    color: rgba(0,0,0,0.3);
-                    opacity: 0;
-                    transition: opacity 0.3s;
-                    pointer-events: none;
-                }
-                
-                .rhythm-left-zone:hover .zone-hint,
-                .rhythm-right-zone:hover .zone-hint { opacity: 1; }
-                
-                .rhythm-wave-box { 
-                    display: flex; 
-                    align-items: flex-end; 
-                    gap: 2px; 
-                    height: 35px; 
-                    width: 100%; 
-                    justify-content: center;
-                    padding: 0 10px;
-                    box-sizing: border-box;
-                }
-                
-                /* 律动条默认样式 */
-                .rhythm-bar { 
-                    width: 3px; 
-                    height: 2px; 
-                    background: linear-gradient(to top, #333, #666);
-                    border-radius: 1px; 
-                    transition: background 0.3s; 
-                }
-                
-                .rhythm-bar.edge-bar {
-                    width: 2px;
-                    opacity: 0.6;
-                }
-                
-                .rhythm-base-line { 
-                    width: 100%; 
-                    height: 2px; 
-                    background: #333; 
-                    margin-top: 1px; 
-                }
-
-                .player-rhythm-icon.playing .rhythm-bar { 
-                    animation: wave var(--s) infinite ease-in-out alternate; 
-                    animation-delay: var(--d); 
-                }
-                
-                /* 律动条单色模式 */
-                .player-rhythm-icon.rgb-single .rhythm-bar { 
-                    background: linear-gradient(to top, 
-                        var(--rgb-single),
-                        color-mix(in srgb, var(--rgb-single) 70%, white)
-                    );
-                    box-shadow: 0 0 5px var(--rgb-single); 
-                }
-                
-                .player-rhythm-icon.rgb-single .rhythm-base-line { 
-                    background: var(--rgb-single); 
-                    box-shadow: 0 0 5px var(--rgb-single); 
-                }
-                
-                /* 律动条幻彩模式 */
-                .player-rhythm-icon.rgb-rainbow .rhythm-bar { 
-                    animation: wave var(--s) infinite ease-in-out alternate, bar-color-flash 3s linear infinite;
-                    animation-delay: var(--d), 0s;
-                }
-                
-                /* 律动条幻彩模式 - 底部线保持流动渐变 */
-                .player-rhythm-icon.rgb-rainbow .rhythm-base-line { 
-                    background: linear-gradient(90deg,
-                        hsl(0, 70%, 75%), hsl(60, 70%, 75%), hsl(120, 70%, 75%),
-                        hsl(180, 70%, 75%), hsl(240, 70%, 75%), hsl(300, 70%, 75%), hsl(360, 70%, 75%)
-                    );
-                    background-size: 200% 100%;
-                    animation: rainbow-flow 4s linear infinite;
-                }
-                
-                @keyframes rainbow-flow {
-                    0% { background-position: 0% 50%; }
-                    100% { background-position: 200% 50%; }
-                }
-
-                /* ===== 播放器主体 ===== */
-                #player-root {
-                    position: fixed; 
-                    z-index: 10000;
-                    width: 400px;
-                    height: var(--player-h, 180px);
-                    border-radius: 30px; 
-                    display: none; 
-                    flex-direction: column;
-                    font-family: sans-serif; 
-                    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-                    transition: height 0.3s, width 0.3s; 
-                    pointer-events: auto;
-                    --rgb-single: #7eb8c9; 
-                    --border-w: 6px;
-                    --lyrics-start: #7eb8c9; 
-                    --lyrics-end: #c9a7eb;
-                }
-                #player-root.expanded { height: 520px !important; }
-
-                /* RGB边框 - 单色模式：呼吸闪烁效果 */
-                .player-rgb-border { 
-                    position: absolute; 
-                    inset: 0; 
-                    border-radius: 30px; 
-                    z-index: 0; 
-                    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                    -webkit-mask-composite: xor;
-                    mask-composite: exclude;
-                    padding: var(--border-w);
-                }
-                
-                .player-rgb-border.mode-single { 
-                    background: var(--rgb-single) !important;
-                    animation: single-breathe 2s ease-in-out infinite !important;
-                }
-                
-                /* RGB边框 - 幻彩模式：变幻颜色呼吸效果 */
-                .player-rgb-border.mode-rainbow { 
-                    animation: rainbow-breathe 6s linear infinite !important;
-                }
-
-                .player-inner {
-                    position: absolute; 
-                    top: var(--border-w); 
-                    left: var(--border-w); 
-                    right: var(--border-w); 
-                    bottom: var(--border-w);
-                    border-radius: 24px; 
-                    z-index: 1; 
-                    overflow: hidden;
-                    background: #1a1a1a;
-                    transition: background 0.3s;
-                }
-
-                .player-inner.glass-mode {
-                    backdrop-filter: blur(20px) saturate(180%);
-                    -webkit-backdrop-filter: blur(20px) saturate(180%);
-                }
-
-                /* 灵动岛 */
-                .player-island { 
-                    width: 70px; 
-                    height: 18px; 
-                    background: #000; 
-                    margin: 0 auto; 
-                    border-radius: 0 0 10px 10px; 
-                    cursor: move; 
-                    position: absolute; 
-                    left: 50%; 
-                    transform: translateX(-50%); 
-                    z-index: 20; 
-                    top: 0;
-                    transition: background 0.3s;
-                    overflow: hidden;
-                }
-
-                /* 灵动岛单色呼吸效果 */
-                .player-island.rgb-single-breathe {
-                    background: var(--rgb-single) !important;
-                    animation: single-breathe 2s ease-in-out infinite !important;
-                }
-
-                /* 灵动岛幻彩呼吸效果 */
-                .player-island.rgb-rainbow-breathe {
-                    animation: rainbow-breathe 6s linear infinite !important;
-                }
-
-                .player-main { 
-                    display: flex; 
-                    height: 100%; 
-                    padding: 30px 15px 15px; 
-                    box-sizing: border-box; 
-                    align-items: center; 
-                    position: relative; 
-                    z-index: 3; 
-                }
-                
-                .player-cover { 
-                    width: 80px; 
-                    height: 80px; 
-                    border-radius: 12px; 
-                    margin-right: 15px; 
-                    background-size: cover; 
-                    background-position: center; 
-                    background-repeat: no-repeat;
-                    background-color: rgba(0,0,0,0.2);
-                    transition: width 0.3s, height 0.3s;
-                }
-                
-                .player-center { 
-                    flex: 1; 
-                    display: flex; 
-                    flex-direction: column; 
-                    justify-content: center; 
-                    overflow: hidden; 
-                }
-                
-                .player-meta { 
-                    white-space: nowrap; 
-                    overflow: hidden; 
-                    margin-bottom: 5px; 
-                }
-                .player-title { font-weight: bold; font-size: 16px; }
-                .player-artist { font-size: 12px; opacity: 0.7; }
-                .player-lyrics { 
-                    font-size: 12px; 
-                    opacity: 0.8; 
-                    height: 16px; 
-                    overflow: hidden; 
-                    text-align: center; 
-                }
-                
-                .player-prog-wrap { 
-                    width: 100%; 
-                    height: 6px; 
-                    background: rgba(255,255,255,0.1); 
-                    border-radius: 3px; 
-                    position: relative; 
-                    margin: 5px 0; 
-                }
-                #inp-prog { 
-                    width: 100%; 
-                    height: 100%; 
-                    -webkit-appearance: none; 
-                    background: transparent; 
-                    margin: 0; 
-                    cursor: pointer;
-                }
-                #inp-prog::-webkit-slider-thumb { 
-                    -webkit-appearance: none; 
-                    width: 12px; 
-                    height: 12px; 
-                    background: var(--rgb-single); 
-                    border-radius: 50%; 
-                    box-shadow: 0 0 5px rgba(0,0,0,0.5); 
-                    margin-top: -3px;
-                }
-                
-                .player-controls { 
-                    display: flex; 
-                    justify-content: space-between; 
-                    align-items: center; 
-                    padding-top: 10px; 
-                }
-                .player-controls button { 
-                    background: none; 
-                    border: none; 
-                    color: inherit; 
-                    cursor: pointer; 
-                    display: flex; 
-                    align-items: center; 
-                }
-                #btn-play { 
-                    font-size: 22px; 
-                    width: 26px; 
-                    height: 26px; 
-                    justify-content: center; 
-                }
-                #btn-prev, #btn-next { font-size: 18px; }
-                #btn-play-mode { font-size: 18px; opacity: 0.8; }
-                #btn-list { font-size: 18px; opacity: 0.8; }
-
-                .player-right { 
-                    display: flex; 
-                    flex-direction: column; 
-                    justify-content: space-between; 
-                    height: 100px; 
-                    margin-left: 12px; 
-                }
-                .player-right button { 
-                    background: none; 
-                    border: none; 
-                    font-size: 22px; 
-                    cursor: pointer; 
-                    opacity: 0.7; 
-                    color: inherit; 
-                    padding: 5px;
-                    transition: opacity 0.2s;
-                }
-                .player-right button:hover { opacity: 1; }
-                
-                /* 纯享模式 */
-                .player-pure-mode { 
-                    display: none; 
-                    width: 100%; 
-                    height: 100%; 
-                    justify-content: center; 
-                    align-items: center; 
-                    padding: 40px 30px; 
-                    box-sizing: border-box;
-                    overflow: hidden; 
-                    cursor: pointer;
-                }
-                #player-root.pure-mode #player-main-content { display: none; }
-                #player-root.pure-mode .player-pure-mode { display: flex; }
-
-                #pure-lyrics-container {
-                    width: 100%;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 12px;
-                }
-
-                .pure-lyric-line {
-                    font-size: 14px;
-                    opacity: 0.4;
-                    transition: all 0.3s;
-                    text-align: center;
-                    line-height: 1.5;
-                }
-
-                /* 歌词渐变效果 */
-                .pure-lyric-line.active {
-                    font-size: 22px;
-                    font-weight: bold;
-                    opacity: 1;
-                    background: linear-gradient(90deg, 
-                        var(--lyrics-start) 0%, 
-                        var(--lyrics-start) var(--lyric-progress, 0%), 
-                        var(--lyrics-end) var(--lyric-progress, 0%), 
-                        rgba(255,255,255,0.5) 100%);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                }
-
-                .pure-lyric-line.no-lyrics {
-                    font-size: 16px;
-                    opacity: 0.6;
-                    background: none;
-                    -webkit-text-fill-color: inherit;
-                }
-
-                .pure-lyric-line.passed { opacity: 0.25; }
-
-                /* 面板 */
-                .player-panel { 
-                    flex: 1; 
-                    display: none; 
-                    flex-direction: column; 
-                    padding: 15px; 
-                    overflow-y: auto; 
-                    position: relative; 
-                    z-index: 3; 
-                    max-height: 360px;
-                    background: transparent;
-                }
-                
-                .panel-section-title {
-                    font-weight: bold;
-                    font-size: 13px;
-                    margin: 12px 0 8px 0;
-                    padding-bottom: 5px;
-                    border-bottom: 1px solid rgba(255,255,255,0.15);
-                    position: relative;
-                }
-                .panel-section-title:first-child { margin-top: 0; }
-                
-                .panel-row { 
-                    display: flex; 
-                    justify-content: space-between; 
-                    margin-bottom: 10px; 
-                    font-size: 12px; 
-                    align-items: center;
-                    padding: 6px 0;
-                    border-bottom: 1px solid rgba(255,255,255,0.08);
-                    position: relative;
-                }
-                
-                .panel-row.panel-col-2 { gap: 10px; }
-                .panel-row.panel-col-2 label { 
-                    flex: 1; 
-                    display: flex; 
-                    justify-content: space-between; 
-                    align-items: center; 
-                    font-size: 12px; 
-                    color: inherit;
-                }
-                
-                .panel-bg-ctrl { display: flex; gap: 5px; align-items: center; }
-                
-                .panel-upload-btn {
-                    padding: 5px 10px;
-                    background: rgba(255,255,255,0.1);
-                    border: 1px solid rgba(255,255,255,0.2);
-                    color: inherit;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    font-size: 11px;
-                    transition: all 0.2s;
-                }
-                .panel-upload-btn:hover {
-                    background: rgba(255,255,255,0.2);
-                }
-                
-                .panel-list-btns {
-                    display: flex;
-                    gap: 10px;
-                    margin-top: 10px;
-                }
-                
-                /* 统一的操作按钮样式 */
-                .panel-action-btn {
-                    flex: 1;
-                    padding: 12px;
-                    background: rgba(255,255,255,0.1);
-                    border: 1px solid rgba(255,255,255,0.25);
-                    cursor: pointer;
-                    font-weight: bold;
-                    border-radius: 8px;
-                    color: inherit;
-                    font-size: 13px;
-                    transition: all 0.2s;
-                }
-                
-                .panel-action-btn:hover {
-                    background: rgba(255,255,255,0.2);
-                    border-color: rgba(255,255,255,0.4);
-                }
-                
-                .panel-action-btn:active {
-                    transform: scale(0.98);
-                }
-                
-                .panel-opt-group { 
-                    display: flex; 
-                    gap: 4px; 
-                    background: rgba(0,0,0,0.3); 
-                    padding: 2px; 
-                    border-radius: 5px; 
-                }
-                .rgb-opt { 
-                    padding: 4px 8px; 
-                    cursor: pointer; 
-                    border-radius: 4px; 
-                    font-size: 11px; 
-                    transition: all 0.2s; 
-                }
-                .rgb-opt.active { 
-                    background: #fff; 
-                    color: #000; 
-                    font-weight: bold; 
-                }
-
-                input[type=color] { 
-                    width: 28px; 
-                    height: 28px; 
-                    border: none; 
-                    background: none; 
-                    cursor: pointer; 
-                    border-radius: 4px; 
-                }
-                input[type=range] { width: 100px; }
-                input[type=checkbox] { 
-                    width: 16px; 
-                    height: 16px; 
-                    cursor: pointer; 
-                }
-                
-                /* 播放列表 */
-                .list-box { max-height: 280px; overflow-y: auto; }
-                .list-box::-webkit-scrollbar { width: 4px; }
-                .list-box::-webkit-scrollbar-thumb { 
-                    background: rgba(255,255,255,0.3); 
-                    border-radius: 2px; 
-                }
-
-                .list-item { 
-                    display: flex; 
-                    justify-content: space-between; 
-                    padding: 10px 0; 
-                    border-bottom: 1px solid rgba(255,255,255,0.1); 
-                    align-items: center;
-                }
-                
-                .list-item.active { color: var(--rgb-single); font-weight: bold; }
-                .list-item .item-info { flex: 1; cursor: pointer; font-size: 13px; }
-                .item-btns { display: flex; gap: 8px; align-items: center; }
-                .item-btns button { padding: 3px 8px; font-size: 11px; }
-                .btn-lyrics { 
-                    background: rgba(255,255,255,0.1); 
-                    border: 1px solid rgba(255,255,255,0.2); 
-                    color: inherit; 
-                    border-radius: 4px; 
-                    cursor: pointer; 
-                }
-                .btn-del { 
-                    background: none; 
-                    border: none; 
-                    color: #f55; 
-                    cursor: pointer; 
-                    font-size: 18px; 
-                }
-
-                /* 导入历史 */
-                .history-list {
-                    max-height: 300px;
-                    overflow-y: auto;
-                }
-
-                .history-list::-webkit-scrollbar {
-                    width: 4px;
-                }
-
-                .history-list::-webkit-scrollbar-thumb {
-                    background: rgba(255,255,255,0.3);
-                    border-radius: 2px;
-                }
-
-                .history-item {
-                    display: flex;
-                    align-items: center;
-                    padding: 12px 0;
-                    border-bottom: 1px solid rgba(255,255,255,0.1);
-                    gap: 12px;
-                }
-
-                .history-icon {
-                    font-size: 20px;
-                    width: 40px;
-                    height: 40px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: rgba(255,255,255,0.1);
-                    border-radius: 10px;
-                }
-
-                .history-content {
-                    flex: 1;
-                    overflow: hidden;
-                }
-
-                .history-title {
-                    font-weight: bold;
-                    font-size: 13px;
-                    margin-bottom: 3px;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-
-                .history-sub {
-                    font-size: 11px;
-                    opacity: 0.7;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-
-                .history-time {
-                    font-size: 10px;
-                    opacity: 0.5;
-                    white-space: nowrap;
-                }
-
-                .no-history {
-                    text-align: center;
-                    padding: 40px 0;
-                    opacity: 0.5;
-                    font-size: 13px;
-                }
-
-                .player-panel::-webkit-scrollbar { width: 4px; }
-                .player-panel::-webkit-scrollbar-thumb { 
-                    background: rgba(255,255,255,0.3); 
-                    border-radius: 2px; 
-                }
-            `;
-            const style = document.createElement('style');
-            style.textContent = css;
-            document.head.appendChild(style);
         }
     };
 
