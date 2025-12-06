@@ -182,7 +182,7 @@ function showHelp() {
                 <p style="margin: 0 0 8px 0; line-height: 1.6;">
                     <strong>建议：</strong><br>
                     • 歌单请分批少量导入<br>
-                    • 导入后及时播放以完成缓存
+                    • 导入后及时使用一键缓存功能
                 </p>
                 <p style="margin: 0; line-height: 1.6; opacity: 0.9;">
                     <strong>注：</strong>网易云分享链接使用第三方API解析（已获原作者授权），未来可能因不可抗力失效。已提供备选方案：URL直链导入、本地文件导入。
@@ -192,10 +192,10 @@ function showHelp() {
             <h3>📜 声明</h3>
             <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; line-height: 1.8;">
                 <p style="margin: 0 0 8px 0;">
-                    本扩展暂未在任何平台公开发布，仅在群内分享。
+                    务必使用一键缓存！！一键缓存！！
                 </p>
                 <p style="margin: 0 0 8px 0;">
-                    🚫 <strong>禁止二次传播</strong>，但允许私人分享。
+                    🚫 <strong>禁止二传</strong>，但允许私人分享。
                 </p>
                 <p style="margin: 0;">
                     如有Bug反馈或功能建议，欢迎联系作者：<br>
