@@ -603,11 +603,8 @@
                         <div class="cache-progress-tip">请勿关闭页面...</div>
                     </div>
                 `;
-                
-                // 优先挂到酒馆扩展容器，降级到 body
-                const container = document.getElementById('extensions_settings')?.parentElement 
-                               || document.body;
-                container.appendChild(progressEl);
+                document.body.appendChild(progressEl);
+                progressEl.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 2147483647 !important; display: flex !important; justify-content: center !important; align-items: center !important; background: rgba(0, 0, 0, 0.8) !important; margin: 0 !important; padding: 20px !important; box-sizing: border-box !important;';
             }
         },
 
@@ -734,11 +731,8 @@
                     </div>
                 </div>
             `;
-            
-            // 优先挂到酒馆扩展容器，降级到 body
-            const container = document.getElementById('extensions_settings')?.parentElement 
-                           || document.body;
-            container.appendChild(overlay);
+            document.body.appendChild(overlay);
+            overlay.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 2147483647 !important; display: flex !important; justify-content: center !important; align-items: center !important; background: rgba(0, 0, 0, 0.8) !important; margin: 0 !important; padding: 20px !important; box-sizing: border-box !important;';
 
             overlay.querySelector('.dialog-btn-confirm').onclick = () => {
                 overlay.remove();
@@ -778,11 +772,8 @@
                     <button type="button" id="add-cancel-btn" class="dialog-cancel">取消</button>
                 </div>
             `;
-            
-            // 优先挂到酒馆扩展容器，降级到 body
-            const container = document.getElementById('extensions_settings')?.parentElement 
-                           || document.body;
-            container.appendChild(overlay);
+            document.body.appendChild(overlay);
+            overlay.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 2147483647 !important; display: flex !important; justify-content: center !important; align-items: center !important; background: rgba(0, 0, 0, 0.8) !important; margin: 0 !important; padding: 20px !important; box-sizing: border-box !important;';
 
             overlay.querySelector('#add-single-btn').onclick = () => {
                 overlay.remove();
@@ -817,11 +808,8 @@
                     </div>
                 </div>
             `;
-            
-            // 优先挂到酒馆扩展容器，降级到 body
-            const container = document.getElementById('extensions_settings')?.parentElement 
-                           || document.body;
-            container.appendChild(overlay);
+            document.body.appendChild(overlay);
+            overlay.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 2147483647 !important; display: flex !important; justify-content: center !important; align-items: center !important; background: rgba(0, 0, 0, 0.8) !important; margin: 0 !important; padding: 20px !important; box-sizing: border-box !important;';
 
             const input = overlay.querySelector('.dialog-input');
             input.focus();
@@ -1179,11 +1167,8 @@
                     <button type="button" id="lyrics-cancel-btn" class="dialog-cancel">取消</button>
                 </div>
             `;
-            
-            // 优先挂到酒馆扩展容器，降级到 body
-            const container = document.getElementById('extensions_settings')?.parentElement 
-                           || document.body;
-            container.appendChild(overlay);
+            document.body.appendChild(overlay);
+            overlay.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 2147483647 !important; display: flex !important; justify-content: center !important; align-items: center !important; background: rgba(0, 0, 0, 0.8) !important; margin: 0 !important; padding: 20px !important; box-sizing: border-box !important;';
 
             overlay.querySelector('#lyrics-paste-btn').onclick = () => {
                 overlay.remove();
