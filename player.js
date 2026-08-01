@@ -501,7 +501,7 @@
 
         async refreshSongUrl(neteaseId) {
             try {
-                const urlResponse = await fetch('https://wyapi-1.toubiec.cn/api/music/url', {
+                const urlResponse = await fetch('https://nextmusic.toubiec.cn/api/getSongUrl', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -831,7 +831,7 @@
 
         async fetchNeteaseSongInfo(link) {
             try {
-                const detailResponse = await fetch('https://wyapi-1.toubiec.cn/api/music/detail', {
+                const detailResponse = await fetch('https://nextmusic.toubiec.cn/api/getSongInfo', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: link })
@@ -849,7 +849,7 @@
                 
                 const songInfo = detailData.data;
                 
-                const urlResponse = await fetch('https://wyapi-1.toubiec.cn/api/music/url', {
+                const urlResponse = await fetch('https://nextmusic.toubiec.cn/api/getSongUrl', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -870,7 +870,7 @@
                 
                 let lyrics = '';
                 try {
-                    const lyricResponse = await fetch('https://wyapi-1.toubiec.cn/api/music/lyric', {
+                    const lyricResponse = await fetch('https://nextmusic.toubiec.cn/api/getSongLyric', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id: link })
@@ -958,7 +958,7 @@
         },
 
         async fetchNeteasePlaylist(link) {
-            const response = await fetch('https://wyapi-1.toubiec.cn/api/music/playlist', {
+            const response = await fetch('https://nextmusic.toubiec.cn/api/getSongUrl', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: link })
