@@ -10,7 +10,7 @@
 function loadCSS() {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/scripts/extensions/third-party/hy-yybfq/style.css';
+    link.href = '/scripts/extensions/third-party/HY-audio-player/style.css';
     link.onload = () => console.log('✅ 播放器样式加载完成');
     link.onerror = () => console.error('❌ 播放器样式加载失败');
     document.head.appendChild(link);
