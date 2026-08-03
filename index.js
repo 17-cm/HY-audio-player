@@ -8,7 +8,7 @@ import { extension_settings } from '../../../extensions.js';
 import { saveSettingsDebounced } from '../../../../script.js';
 
 const EXTENSION_NAME = 'music_player';
-const EXTENSION_FOLDER = 'hy-yybfq';
+const EXTENSION_FOLDER = 'HY-audio-player';
 
 console.log('🎵 音乐播放器扩展加载中...');
 
