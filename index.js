@@ -2,9 +2,9 @@
  * 音乐播放器扩展入口
  * 版本: 1.0.9
  * 作者: hy.禾一
- * 仓库: https://github.com/17-cm/HY-audio-player.git
  * 
  * 修改: 添加生命周期钩子，支持数据持久化到 extension_settings
+ *       保留通道检测功能 + 通道切换功能
  */
 
 import { extension_settings } from '../../../extensions.js';
@@ -12,7 +12,7 @@ import { saveSettingsDebounced } from '../../../../script.js';
 
 const EXTENSION_NAME = 'music_player';
 const EXTENSION_FOLDER = 'HY-audio-player';
-const MODULE_NAME = 'music_player_data';  // 与 core.js 保持一致
+const MODULE_NAME = 'music_player_data';
 
 console.log('🎵 音乐播放器扩展加载中...');
 
@@ -22,8 +22,8 @@ console.log('🎵 音乐播放器扩展加载中...');
 
 const DEFAULT_SETTINGS = {
     miniIconVisible: true,
-    neteaseChannel: 1,  // 1 = qijie, 2 = bugpk
-    qishuiChannel: 1    // 1 = pearapi, 2 = 预留
+    neteaseChannel: 1,
+    qishuiChannel: 1
 };
 
 // ============================================================
@@ -34,7 +34,6 @@ function getExtensionSettings() {
     if (!extension_settings[EXTENSION_NAME]) {
         extension_settings[EXTENSION_NAME] = { ...DEFAULT_SETTINGS };
     }
-    // 确保新字段存在
     const settings = extension_settings[EXTENSION_NAME];
     for (const key in DEFAULT_SETTINGS) {
         if (settings[key] === undefined) {
@@ -95,13 +94,10 @@ function loadScript(src) {
 async function loadAllModules() {
     const basePath = `/scripts/extensions/third-party/${EXTENSION_FOLDER}/`;
     try {
-        // 加载工具
         await loadScript(basePath + 'js/utils.js');
-        // 加载API模块
         await loadScript(basePath + 'api/wyy1.js');
         await loadScript(basePath + 'api/wyy2.js');
         await loadScript(basePath + 'api/qs1.js');
-        // 加载核心
         await loadScript(basePath + 'js/core.js');
         await loadScript(basePath + 'js/ui-core.js');
         await loadScript(basePath + 'js/ui-helpers.js');
@@ -122,48 +118,40 @@ function showChannelSwitchDialog() {
     const currentNetease = settings.neteaseChannel || 1;
     const currentQishui = settings.qishuiChannel || 1;
 
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(6px);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 2147483647;
-        padding: 20px;
-        box-sizing: border-box;
-    `;
-
+    const overlay = window.createOverlay();
     overlay.innerHTML = `
-        <div style="
-            background: #2a2a2a;
-            border-radius: 16px;
-            padding: 28px 24px;
-            max-width: 360px;
+        <div class="help-dialog" style="
+            background: #ffffff;
+            color: #1a1a1a;
+            border-radius: 24px;
+            padding: 32px 28px 24px;
+            max-width: 380px;
             width: 100%;
-            color: #fff;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            margin: auto;
+            z-index: 1000000;
+            border: 2px solid #1a1a1a;
+            line-height: 1.6;
         ">
-            <div style="text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 20px;">🎵 通道切换</div>
+            <div style="text-align: center; font-size: 18px; font-weight: 700; color: #1a1a1a; margin-bottom: 20px;">通道切换</div>
             
             <!-- 网易云通道 -->
             <div style="margin-bottom: 16px;">
                 <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #7eb8c9;">网易云通道</div>
                 <div style="display: flex; gap: 8px;">
                     <button class="netease-chan-btn" data-channel="1" style="
-                        flex: 1; padding: 10px; border-radius: 8px; border: 2px solid ${currentNetease === 1 ? '#7eb8c9' : '#444'};
-                        background: ${currentNetease === 1 ? 'rgba(126,184,201,0.2)' : 'transparent'};
-                        color: #fff; cursor: pointer; font-size: 13px; transition: all 0.2s;
+                        flex: 1; padding: 10px; border-radius: 8px; border: 2px solid ${currentNetease === 1 ? '#7eb8c9' : '#ddd'};
+                        background: ${currentNetease === 1 ? 'rgba(126,184,201,0.15)' : '#f5f5f5'};
+                        color: #1a1a1a; cursor: pointer; font-size: 13px; transition: all 0.2s;
                     ">通道一</button>
                     <button class="netease-chan-btn" data-channel="2" style="
-                        flex: 1; padding: 10px; border-radius: 8px; border: 2px solid ${currentNetease === 2 ? '#7eb8c9' : '#444'};
-                        background: ${currentNetease === 2 ? 'rgba(126,184,201,0.2)' : 'transparent'};
-                        color: #fff; cursor: pointer; font-size: 13px; transition: all 0.2s;
+                        flex: 1; padding: 10px; border-radius: 8px; border: 2px solid ${currentNetease === 2 ? '#7eb8c9' : '#ddd'};
+                        background: ${currentNetease === 2 ? 'rgba(126,184,201,0.15)' : '#f5f5f5'};
+                        color: #1a1a1a; cursor: pointer; font-size: 13px; transition: all 0.2s;
                     ">通道二</button>
                 </div>
-                <div style="font-size: 11px; opacity: 0.4; margin-top: 4px; text-align: center;">
+                <div style="font-size: 11px; opacity: 0.4; margin-top: 4px; text-align: center; color: #1a1a1a;">
                     当前：${currentNetease === 1 ? '通道一' : '通道二'}
                 </div>
             </div>
@@ -173,31 +161,30 @@ function showChannelSwitchDialog() {
                 <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #f5a623;">汽水通道</div>
                 <div style="display: flex; gap: 8px;">
                     <button class="qishui-chan-btn" data-channel="1" style="
-                        flex: 1; padding: 10px; border-radius: 8px; border: 2px solid ${currentQishui === 1 ? '#f5a623' : '#444'};
-                        background: ${currentQishui === 1 ? 'rgba(245,166,35,0.2)' : 'transparent'};
-                        color: #fff; cursor: pointer; font-size: 13px; transition: all 0.2s;
+                        flex: 1; padding: 10px; border-radius: 8px; border: 2px solid ${currentQishui === 1 ? '#f5a623' : '#ddd'};
+                        background: ${currentQishui === 1 ? 'rgba(245,166,35,0.15)' : '#f5f5f5'};
+                        color: #1a1a1a; cursor: pointer; font-size: 13px; transition: all 0.2s;
                     ">通道一</button>
                     <button class="qishui-chan-btn" data-channel="2" style="
-                        flex: 1; padding: 10px; border-radius: 8px; border: 2px solid ${currentQishui === 2 ? '#f5a623' : '#444'};
-                        background: ${currentQishui === 2 ? 'rgba(245,166,35,0.2)' : 'transparent'};
-                        color: #fff; cursor: pointer; font-size: 13px; transition: all 0.2s;
+                        flex: 1; padding: 10px; border-radius: 8px; border: 2px solid ${currentQishui === 2 ? '#f5a623' : '#ddd'};
+                        background: ${currentQishui === 2 ? 'rgba(245,166,35,0.15)' : '#f5f5f5'};
+                        color: #1a1a1a; cursor: pointer; font-size: 13px; transition: all 0.2s;
                     ">通道二</button>
                 </div>
-                <div style="font-size: 11px; opacity: 0.4; margin-top: 4px; text-align: center;">
+                <div style="font-size: 11px; opacity: 0.4; margin-top: 4px; text-align: center; color: #1a1a1a;">
                     当前：${currentQishui === 1 ? '通道一' : '通道二'}
                 </div>
             </div>
 
             <button id="channel-close-btn" style="
                 width: 100%; padding: 10px; border: none; border-radius: 8px;
-                background: rgba(255,255,255,0.1); color: #999; cursor: pointer; font-size: 13px;
+                background: #f5f5f5; color: #999; cursor: pointer; font-size: 13px;
             ">关闭</button>
         </div>
     `;
 
     document.body.appendChild(overlay);
 
-    // ===== 网易云通道切换 =====
     overlay.querySelectorAll('.netease-chan-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const channel = parseInt(this.dataset.channel);
@@ -206,13 +193,12 @@ function showChannelSwitchDialog() {
             extension_settings[EXTENSION_NAME] = settings;
             saveExtensionSettings();
             
-            // 更新UI高亮
             overlay.querySelectorAll('.netease-chan-btn').forEach(b => {
-                b.style.borderColor = '#444';
-                b.style.background = 'transparent';
+                b.style.borderColor = '#ddd';
+                b.style.background = '#f5f5f5';
             });
             this.style.borderColor = '#7eb8c9';
-            this.style.background = 'rgba(126,184,201,0.2)';
+            this.style.background = 'rgba(126,184,201,0.15)';
             
             const label = overlay.querySelector('.netease-chan-btn:first-child').parentElement.parentElement.querySelector('div:last-child');
             if (label) label.textContent = `当前：${channel === 1 ? '通道一' : '通道二'}`;
@@ -223,7 +209,6 @@ function showChannelSwitchDialog() {
         });
     });
 
-    // ===== 汽水通道切换 =====
     overlay.querySelectorAll('.qishui-chan-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const channel = parseInt(this.dataset.channel);
@@ -233,11 +218,11 @@ function showChannelSwitchDialog() {
             saveExtensionSettings();
             
             overlay.querySelectorAll('.qishui-chan-btn').forEach(b => {
-                b.style.borderColor = '#444';
-                b.style.background = 'transparent';
+                b.style.borderColor = '#ddd';
+                b.style.background = '#f5f5f5';
             });
             this.style.borderColor = '#f5a623';
-            this.style.background = 'rgba(245,166,35,0.2)';
+            this.style.background = 'rgba(245,166,35,0.15)';
             
             const label = overlay.querySelector('.qishui-chan-btn:first-child').parentElement.parentElement.querySelector('div:last-child');
             if (label) label.textContent = `当前：${channel === 1 ? '通道一' : '通道二'}`;
@@ -253,57 +238,287 @@ function showChannelSwitchDialog() {
 }
 
 // ============================================================
-// 使用说明弹窗
+// 通道检测系统（保留自原版）
+// ============================================================
+
+function showChannelTestDialog() {
+    const overlay = window.createOverlay();
+    overlay.innerHTML = `
+        <div class="help-dialog" style="
+            background: #ffffff;
+            color: #1a1a1a;
+            border-radius: 24px;
+            padding: 32px 28px 24px;
+            max-width: 380px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            margin: auto;
+            z-index: 1000000;
+            border: 2px solid #1a1a1a;
+            line-height: 1.6;
+        ">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1a1a1a;">选择检测通道</h2>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="platform-btn" data-platform="qishui" style="
+                    padding: 12px;
+                    background: #f5f5f5;
+                    border: 1px solid #e8e8e8;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    font-size: 15px;
+                    font-weight: 500;
+                    color: #1a1a1a;
+                    transition: all 0.2s;
+                ">🍹 汽水音乐通道检测</button>
+                <button class="platform-btn" data-platform="netease" style="
+                    padding: 12px;
+                    background: #f5f5f5;
+                    border: 1px solid #e8e8e8;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    font-size: 15px;
+                    font-weight: 500;
+                    color: #1a1a1a;
+                    transition: all 0.2s;
+                ">🎵 网易云通道检测</button>
+                <button id="test-dialog-cancel" style="
+                    margin-top: 6px;
+                    background: none;
+                    border: none;
+                    color: #999;
+                    cursor: pointer;
+                    font-size: 13px;
+                    padding: 8px;
+                ">取消</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelectorAll('.platform-btn').forEach(btn => {
+        btn.addEventListener('mouseenter', () => { btn.style.background = '#e8e8e8'; });
+        btn.addEventListener('mouseleave', () => { btn.style.background = '#f5f5f5'; });
+        btn.onclick = () => {
+            const platform = btn.dataset.platform;
+            overlay.remove();
+            if (platform === 'qishui') {
+                testQishuiChannel();
+            } else if (platform === 'netease') {
+                testNeteaseChannel();
+            }
+        };
+    });
+
+    overlay.querySelector('#test-dialog-cancel').onclick = () => overlay.remove();
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+}
+
+function showResultDialog(title, result) {
+    const overlay = window.createOverlay();
+    const isSuccess = result.includes('✅');
+    overlay.innerHTML = `
+        <div class="help-dialog" style="
+            background: #ffffff;
+            color: #1a1a1a;
+            border-radius: 24px;
+            padding: 32px 28px 24px;
+            max-width: 380px;
+            width: 100%;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            margin: auto;
+            z-index: 1000000;
+            border: 2px solid #1a1a1a;
+            line-height: 1.6;
+            text-align: center;
+        ">
+            <div style="font-size: 48px; margin-bottom: 12px;">${isSuccess ? '✅' : '❌'}</div>
+            <div style="font-size: 18px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px;">
+                ${title}
+            </div>
+            <div style="font-size: 14px; color: #666; margin-bottom: 16px; white-space: pre-wrap;">
+                ${result}
+            </div>
+            <button id="result-ok-btn" style="
+                padding: 10px 40px;
+                background: #1a1a1a;
+                border: none;
+                border-radius: 8px;
+                color: #fff;
+                font-size: 14px;
+                cursor: pointer;
+                font-weight: 500;
+            ">确定</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#result-ok-btn').onclick = () => overlay.remove();
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+}
+
+async function testQishuiChannel() {
+    showResultDialog('检测中...', '⏳ 正在检测汽水音乐通道...');
+    try {
+        const response = await fetch('https://api.pearapi.ai/api/qishui_music?url=https://music.163.com/song?id=1397345903');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.code === 200 && data.data && data.data.song_name) {
+                showResultDialog('检测成功', '✅ 汽水音乐通道可用');
+                return;
+            }
+        }
+        showResultDialog('检测失败', '❌ 汽水音乐通道不可用');
+    } catch (e) {
+        showResultDialog('检测失败', `❌ 汽水音乐通道不可用\n${e.message}`);
+    }
+}
+
+async function testNeteaseChannel() {
+    showResultDialog('检测中...', '⏳ 正在检测网易云通道...');
+    try {
+        const response = await fetch('https://api.qijieya.cn/meting/?server=netease&type=song&id=1397345903');
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data[0] && data[0].name) {
+                showResultDialog('检测成功', '✅ 网易云通道一可用');
+                return;
+            }
+        }
+        // 试一下通道二
+        try {
+            const resp2 = await fetch('https://api.bugpk.com/api/163_music?type=json&url=https://music.163.com/song?id=1397345903');
+            if (resp2.ok) {
+                const data2 = await resp2.json();
+                if (data2.status === 200 && data2.name) {
+                    showResultDialog('检测成功', '✅ 网易云通道二可用');
+                    return;
+                }
+            }
+        } catch (e2) {}
+        showResultDialog('检测失败', '❌ 网易云通道不可用');
+    } catch (e) {
+        showResultDialog('检测失败', `❌ 网易云通道不可用\n${e.message}`);
+    }
+}
+
+// ============================================================
+// 使用说明弹窗（原版样式）
 // ============================================================
 
 function showHelp() {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
-        display: flex; justify-content: center; align-items: center;
-        z-index: 2147483647; padding: 20px; box-sizing: border-box;
-    `;
-
+    const overlay = window.createOverlay();
     overlay.innerHTML = `
-        <div style="
-            background: #2a2a2a; border-radius: 16px; padding: 28px 24px;
-            max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto;
-            color: #fff; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        <div class="help-dialog" style="
+            background: #ffffff;
+            color: #1a1a1a;
+            border-radius: 24px;
+            padding: 36px 32px 28px;
+            max-width: 520px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            margin: auto;
+            z-index: 1000000;
+            border: 2px solid #1a1a1a;
             line-height: 1.6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         ">
-            <div style="text-align: center; margin-bottom: 16px;">
-                <span style="font-size: 36px;">🎵</span>
-                <h2 style="margin: 4px 0; font-size: 18px;">音乐播放器</h2>
-                <p style="margin: 0; opacity: 0.4; font-size: 12px;">hy.禾一</p>
+            <button type="button" id="help-close-btn" style="
+                position: sticky;
+                float: right;
+                top: 0;
+                background: none;
+                border: none;
+                font-size: 22px;
+                cursor: pointer;
+                color: #1a1a1a;
+                opacity: 0.4;
+                width: 36px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                transition: all 0.2s;
+                margin-top: -8px;
+                margin-right: -8px;
+            ">✕</button>
+
+            <div style="clear: both;"></div>
+
+            <div style="text-align: center; margin-bottom: 24px;">
+                <span style="font-size: 38px; display: block; margin-bottom: 4px;">🎵</span>
+                <h2 style="margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.3px; color: #1a1a1a;">音乐播放器</h2>
+                <p style="margin: 4px 0 0; opacity: 0.35; font-size: 12px; color: #1a1a1a;">hy.禾一</p>
             </div>
 
-            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px;">
-                <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">🎯 通道切换</div>
-                <div style="font-size: 12px; opacity: 0.8;">在扩展面板点击"通道切换"，可切换网易云/汽水的解析通道</div>
+            <div style="background: #f5f5f5; border-radius: 12px; padding: 14px 16px; border: 1px solid #e8e8e8; margin-bottom: 10px;">
+                <div style="font-weight: 600; font-size: 14px; color: #1a1a1a; margin-bottom: 8px;">功能按钮</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 13px; color: #333;">
+                    <div><span style="font-weight: 500;">𓆟</span> 切换纯享模式</div>
+                    <div><span style="font-weight: 500;">𓆝</span> 切换律动模式</div>
+                    <div><span style="font-weight: 500;">♡</span> 自定义设置面板</div>
+                    <div><span style="font-weight: 500;">☰</span> 播放列表</div>
+                </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px;">
-                <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">📋 导入歌曲</div>
-                <div style="font-size: 12px; opacity: 0.8;">支持网易云单曲、歌单链接，汽水音乐单曲链接</div>
+            <div style="background: #f5f5f5; border-radius: 12px; padding: 14px 16px; border: 1px solid #e8e8e8; margin-bottom: 10px;">
+                <div style="font-weight: 600; font-size: 14px; color: #1a1a1a; margin-bottom: 6px;">模式操作</div>
+                <div style="font-size: 13px; color: #333; line-height: 1.8;">
+                    <div>• 纯享模式：点击屏幕任意位置返回播放器</div>
+                    <div>• 律动模式：点击播放器上的 𓆝 按钮返回播放器</div>
+                </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px;">
-                <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">⚠️ 重要</div>
-                <div style="font-size: 12px; opacity: 0.8;">导入后点击"⟳ 一键缓存"刷新链接，防止失效</div>
+            <div style="background: #f5f5f5; border-radius: 12px; padding: 14px 16px; border: 1px solid #e8e8e8; margin-bottom: 10px;">
+                <div style="font-weight: 600; font-size: 14px; color: #1a1a1a; margin-bottom: 6px;">核心亮点</div>
+                <div style="font-size: 13px; color: #333; line-height: 1.8;">
+                    <div>• 支持网易云音乐、汽水音乐分享链接解析</div>
+                    <div>• 支持单曲导入和歌单导入（网易云）</div>
+                    <div>• 粘贴链接时可直接粘贴完整分享文案，自动提取链接</div>
+                </div>
             </div>
 
-            <button id="help-close-btn" style="
-                width: 100%; padding: 10px; border: none; border-radius: 8px;
-                background: rgba(255,255,255,0.1); color: #999; cursor: pointer; font-size: 13px; margin-top: 12px;
-            ">关闭</button>
+            <div style="background: #fff3e0; border-radius: 12px; padding: 14px 16px; border: 1px solid #ffcc80; margin-bottom: 10px;">
+                <div style="font-weight: 600; font-size: 14px; color: #e65100; margin-bottom: 4px;">⚠️ 重要提示</div>
+                <div style="font-size: 13px; color: #bf360c; line-height: 1.6;">
+                    导入歌曲或歌单后，请务必点击播放列表底部的 <strong>⟳ 一键缓存</strong>，否则刷新页面后歌曲链接可能失效。
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e8e8e8;">
+                <span style="opacity: 0.3; font-size: 12px; color: #1a1a1a;">开源 · 免费 · 仅供个人使用</span>
+                <div style="margin-top: 4px; opacity: 0.25; font-size: 11px; color: #1a1a1a;">📧 QQ: 2027932654</div>
+            </div>
         </div>
     `;
 
     document.body.appendChild(overlay);
 
-    overlay.querySelector('#help-close-btn').onclick = () => overlay.remove();
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    const closeBtn = overlay.querySelector('#help-close-btn');
+    closeBtn.addEventListener('mouseenter', function() {
+        this.style.opacity = '0.8';
+        this.style.background = 'rgba(0,0,0,0.05)';
+    });
+    closeBtn.addEventListener('mouseleave', function() {
+        this.style.opacity = '0.4';
+        this.style.background = 'none';
+    });
+    closeBtn.addEventListener('click', () => {
+        overlay.remove();
+    });
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+    });
 }
 
 // ============================================================
@@ -330,6 +545,11 @@ function createExtensionPanel() {
                     🔄 通道切换
                 </button>
 
+                <!-- 通道检测 -->
+                <button type="button" id="test-channels-btn" class="menu_button" style="width: 100%; margin-bottom: 10px;">
+                    📡 通道检测
+                </button>
+
                 <!-- 最小化控制 -->
                 <button type="button" id="mini-icon-toggle-btn" class="menu_button" style="width: 100%; margin-bottom: 10px;">
                     ${settings.miniIconVisible !== false ? '隐藏最小化图标' : '显示最小化图标'}
@@ -337,7 +557,7 @@ function createExtensionPanel() {
 
                 <!-- 使用说明 -->
                 <button type="button" id="show-help-btn" class="menu_button" style="width: 100%; margin-bottom: 10px;">
-                    使用说明
+                    ❓ 使用说明
                 </button>
 
                 <!-- 注脚 -->
@@ -352,7 +572,6 @@ function createExtensionPanel() {
 
     container.insertAdjacentHTML('beforeend', html);
 
-    // ===== 折叠事件 =====
     const drawerToggle = document.querySelector('#music-player-extension .inline-drawer-toggle');
     if (drawerToggle) {
         drawerToggle.addEventListener('click', function(e) {
@@ -370,13 +589,16 @@ function createExtensionPanel() {
         });
     }
 
-    // ===== 通道切换按钮 =====
     const channelBtn = document.getElementById('channel-switch-btn');
     if (channelBtn) {
         channelBtn.addEventListener('click', showChannelSwitchDialog);
     }
 
-    // ===== 最小化控制 =====
+    const testBtn = document.getElementById('test-channels-btn');
+    if (testBtn) {
+        testBtn.addEventListener('click', showChannelTestDialog);
+    }
+
     const miniToggleBtn = document.getElementById('mini-icon-toggle-btn');
     if (miniToggleBtn) {
         miniToggleBtn.addEventListener('click', () => {
@@ -393,7 +615,6 @@ function createExtensionPanel() {
         });
     }
 
-    // ===== 使用说明 =====
     const helpBtn = document.getElementById('show-help-btn');
     if (helpBtn) {
         helpBtn.addEventListener('click', showHelp);
@@ -426,63 +647,35 @@ function initPlayer() {
 // 🎯 生命周期钩子（export）
 // ============================================================
 
-/**
- * 安装时调用
- * 用于：初始化默认数据
- */
 export async function onInstall() {
     console.log('🎵 音乐播放器安装中...');
-    
-    // 尝试初始化数据（core.loadData 会自动处理）
     if (window.MusicPlayerCore && typeof window.MusicPlayerCore.loadData === 'function') {
-        // 延迟执行，确保其他模块已加载
         setTimeout(() => {
             window.MusicPlayerCore.loadData();
         }, 100);
     }
-    
     console.log('✅ 音乐播放器安装完成');
 }
 
-/**
- * 激活时调用（页面加载期间）
- * 用于：启动扩展
- */
 export async function onActivate() {
     console.log('🎵 音乐播放器激活');
-    // 正常初始化由 initPlayer 完成，这里不需要额外操作
 }
 
-/**
- * 更新时调用
- * 用于：数据迁移（版本更新时）
- */
 export async function onUpdate() {
     console.log('🎵 音乐播放器更新中...');
-    
-    // 检查是否需要数据迁移
     if (window.MusicPlayerCore && typeof window.MusicPlayerCore.loadData === 'function') {
-        // 重新加载数据（会自动处理迁移）
         window.MusicPlayerCore.loadData();
     }
-    
     console.log('✅ 音乐播放器更新完成');
 }
 
-/**
- * 卸载时调用
- * 用于：清理数据、移除 UI
- * 🔥 解决卸载重装提示"已存在"的问题
- */
 export async function onDelete() {
     console.log('🗑️ 音乐播放器卸载中...');
     
-    // 1. 清理播放器数据
     if (window.MusicPlayerCore && typeof window.MusicPlayerCore.clearData === 'function') {
         window.MusicPlayerCore.clearData();
     }
     
-    // 2. 清理 UI 元素
     const elementsToRemove = [
         'player-root',
         'player-status',
@@ -496,61 +689,41 @@ export async function onDelete() {
         if (el) el.remove();
     });
     
-    // 3. 清理任何残留的弹窗
     document.querySelectorAll('.player-dialog-overlay, .help-dialog, .player-status, .cache-progress-overlay').forEach(el => {
         el.remove();
     });
     
-    // 4. 清理动态添加的样式（如果有）
-    // 注意：style.css 是通过 link 加载的，卸载时不需要移除，因为酒馆会重新加载页面
-    
     console.log('✅ 音乐播放器已清理完成');
-    
-    // 返回 Promise 让酒馆等待清理完成
     return Promise.resolve();
 }
 
-/**
- * 启用时调用
- */
 export function onEnable() {
     console.log('🎵 音乐播放器已启用');
-    // 显示播放器
     if (typeof window.showUI === 'function') {
         window.showUI();
     }
 }
 
-/**
- * 禁用时调用
- */
 export function onDisable() {
     console.log('🎵 音乐播放器已禁用');
-    // 隐藏播放器
     if (typeof window.hideUI === 'function') {
         window.hideUI();
     }
 }
 
-/**
- * 清理数据时调用（用户点击"清理扩展数据"）
- */
 export async function onClean() {
     console.log('🧹 音乐播放器数据清理');
-    
     if (window.MusicPlayerCore && typeof window.MusicPlayerCore.clearData === 'function') {
         window.MusicPlayerCore.clearData();
     }
-    
     if (typeof toastr !== 'undefined') {
         toastr.success('音乐播放器数据已清理');
     }
-    
     return Promise.resolve();
 }
 
 // ============================================================
-// 暴露到全局（供其他模块使用）
+// 暴露到全局
 // ============================================================
 
 window.getCurrentNeteaseChannel = getCurrentNeteaseChannel;
@@ -563,9 +736,6 @@ window.saveExtensionSettings = saveExtensionSettings;
 // ============================================================
 
 $(document).ready(() => {
-    // 先创建扩展面板（同步）
     createExtensionPanel();
-    
-    // 再加载所有模块（异步）
     loadAllModules();
 });
