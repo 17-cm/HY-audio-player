@@ -89,7 +89,7 @@ function renderImportHistory() {
 }
 
 // ============================================================
-// 添加歌曲
+// 添加歌曲弹窗
 // ============================================================
 
 function showAddOptions() {
@@ -181,11 +181,13 @@ function showAddOptions() {
             '添加网易云单曲',
             '支持单曲导入、歌单导入，输入分享链接。歌单导入请自建歌单少量多次，防止崩溃。',
             async (input) => {
-                if (!window.isNeteaseLink || !window.isNeteaseLink(input)) {
+                // 使用通道一的检测函数（wyy1）
+                if (typeof window.isNeteaseLink1 === 'function' && !window.isNeteaseLink1(input)) {
                     window.showStatus('请输入有效的网易云链接', 'error');
                     return;
                 }
-                if (window.isPlaylistLink && window.isPlaylistLink(input)) {
+                // 使用通道一的歌单检测
+                if (typeof window.isPlaylistLink1 === 'function' && window.isPlaylistLink1(input)) {
                     await doAddPlaylist(input);
                 } else {
                     await doAddSong(input, 'netease');
@@ -199,7 +201,7 @@ function showAddOptions() {
 }
 
 // ============================================================
-// 执行添加单曲
+// 执行添加单曲（支持通道切换）
 // ============================================================
 
 async function doAddSong(input, source) {
@@ -209,53 +211,93 @@ async function doAddSong(input, source) {
         return;
     }
 
-    window.showStatus(`正在解析${source === 'netease' ? '网易云' : '汽水音乐'}链接...`, 'info');
+    if (source === 'netease') {
+        const channel = window.getCurrentNeteaseChannel ? window.getCurrentNeteaseChannel() : 1;
+        const label = channel === 1 ? '通道一' : '通道二';
+        window.showStatus(`正在使用网易云${label}解析...`, 'info');
 
-    try {
-        let songInfo;
-        if (source === 'netease') {
-            if (typeof window.fetchNeteaseSongInfo !== 'function') {
-                throw new Error('网易云解析模块未加载');
+        try {
+            let songInfo;
+            if (channel === 1) {
+                if (typeof window.fetchNeteaseSongInfo1 !== 'function') {
+                    throw new Error('网易云通道一未加载');
+                }
+                songInfo = await window.fetchNeteaseSongInfo1(input);
+            } else {
+                if (typeof window.fetchNeteaseSongInfo2 !== 'function') {
+                    throw new Error('网易云通道二未加载');
+                }
+                songInfo = await window.fetchNeteaseSongInfo2(input);
             }
-            songInfo = await window.fetchNeteaseSongInfo(input);
-        } else {
-            if (typeof window.fetchQishuiSongInfo !== 'function') {
+
+            core.playlist.push({
+                title: songInfo.title,
+                artist: songInfo.artist,
+                url: songInfo.url,
+                lyrics: songInfo.lyrics || '',
+                cover: songInfo.cover || '',
+                shareLink: songInfo.shareLink || input,
+                source: 'netease'
+            });
+
+            core.addImportHistory('single', {
+                title: songInfo.title,
+                artist: songInfo.artist,
+                link: input,
+                source: 'netease'
+            });
+
+            core.saveData();
+            renderList();
+            window.showStatus(`成功添加: ${songInfo.title}`, 'success');
+
+            if (core.index === -1) {
+                core.play(core.playlist.length - 1);
+            }
+        } catch (error) {
+            window.showStatus(`添加失败: ${error.message}`, 'error');
+        }
+    } else if (source === 'qishui') {
+        // 汽水走通道一
+        window.showStatus('正在使用汽水通道一解析...', 'info');
+        try {
+            if (typeof window.fetchQishuiSongInfo1 !== 'function') {
                 throw new Error('汽水音乐解析模块未加载');
             }
-            songInfo = await window.fetchQishuiSongInfo(input);
+            const songInfo = await window.fetchQishuiSongInfo1(input);
+
+            core.playlist.push({
+                title: songInfo.title,
+                artist: songInfo.artist,
+                url: songInfo.url,
+                lyrics: songInfo.lyrics || '',
+                cover: songInfo.cover || '',
+                shareLink: songInfo.shareLink || input,
+                source: 'qishui'
+            });
+
+            core.addImportHistory('single', {
+                title: songInfo.title,
+                artist: songInfo.artist,
+                link: input,
+                source: 'qishui'
+            });
+
+            core.saveData();
+            renderList();
+            window.showStatus(`成功添加: ${songInfo.title}`, 'success');
+
+            if (core.index === -1) {
+                core.play(core.playlist.length - 1);
+            }
+        } catch (error) {
+            window.showStatus(`添加失败: ${error.message}`, 'error');
         }
-
-        core.playlist.push({
-            title: songInfo.title,
-            artist: songInfo.artist,
-            url: songInfo.url,
-            lyrics: songInfo.lyrics || '',
-            cover: songInfo.cover || '',
-            shareLink: songInfo.shareLink || input,  // 存分享链接
-            source: source
-        });
-
-        core.addImportHistory('single', {
-            title: songInfo.title,
-            artist: songInfo.artist,
-            link: input,
-            source: source
-        });
-
-        core.saveData();
-        renderList();
-        window.showStatus(`成功添加: ${songInfo.title}`, 'success');
-
-        if (core.index === -1) {
-            core.play(core.playlist.length - 1);
-        }
-    } catch (error) {
-        window.showStatus(`添加失败: ${error.message}`, 'error');
     }
 }
 
 // ============================================================
-// 执行添加歌单
+// 执行添加歌单（支持通道切换）
 // ============================================================
 
 async function doAddPlaylist(input) {
@@ -265,10 +307,23 @@ async function doAddPlaylist(input) {
         return;
     }
 
-    window.showStatus('正在解析歌单...', 'info');
+    const channel = window.getCurrentNeteaseChannel ? window.getCurrentNeteaseChannel() : 1;
+    const label = channel === 1 ? '通道一' : '通道二';
+    window.showStatus(`正在使用网易云${label}解析歌单...`, 'info');
 
     try {
-        const playlist = await window.fetchNeteasePlaylist(input);
+        let playlist;
+        if (channel === 1) {
+            if (typeof window.fetchNeteasePlaylist1 !== 'function') {
+                throw new Error('网易云通道一歌单功能未加载');
+            }
+            playlist = await window.fetchNeteasePlaylist1(input);
+        } else {
+            if (typeof window.fetchNeteasePlaylist2 !== 'function') {
+                throw new Error('网易云通道二歌单功能未加载');
+            }
+            playlist = await window.fetchNeteasePlaylist2(input);
+        }
 
         if (!playlist.tracks || playlist.tracks.length === 0) {
             window.showStatus('歌单为空或无法获取歌曲列表', 'error');
@@ -284,7 +339,7 @@ async function doAddPlaylist(input) {
                     <p><strong>歌曲数：</strong>${playlist.tracks.length} 首</p>
                     <p style="margin-top:10px;opacity:0.8;">是否全部添加到播放列表？</p>
                 </div>`,
-                () => importPlaylistTracks(playlist, input)
+                () => importPlaylistTracks(playlist, input, channel)
             );
         }
     } catch (error) {
@@ -293,10 +348,10 @@ async function doAddPlaylist(input) {
 }
 
 // ============================================================
-// 导入歌单曲目
+// 导入歌单曲目（支持通道切换）
 // ============================================================
 
-async function importPlaylistTracks(playlist, link) {
+async function importPlaylistTracks(playlist, link, channel) {
     const core = window.MusicPlayerCore;
     if (!core) return;
 
@@ -316,8 +371,21 @@ async function importPlaylistTracks(playlist, link) {
         }
 
         try {
-            // 用每首歌的 shareLink 去获取单曲信息
-            const songInfo = await window.fetchNeteaseSongInfo(track.shareLink);
+            let songInfo;
+            // 根据通道获取单曲信息
+            if (channel === 1) {
+                if (typeof window.fetchNeteaseSongInfo1 === 'function') {
+                    songInfo = await window.fetchNeteaseSongInfo1(track.shareLink);
+                }
+            } else {
+                if (typeof window.fetchNeteaseSongInfo2 === 'function') {
+                    songInfo = await window.fetchNeteaseSongInfo2(track.shareLink);
+                }
+            }
+
+            if (!songInfo) {
+                throw new Error('解析失败');
+            }
 
             core.playlist.push({
                 title: track.name,
@@ -325,7 +393,7 @@ async function importPlaylistTracks(playlist, link) {
                 url: songInfo.url,
                 lyrics: songInfo.lyrics || '',
                 cover: track.picUrl || songInfo.cover,
-                shareLink: track.shareLink,  // 每首歌的分享链接
+                shareLink: track.shareLink,
                 source: 'netease'
             });
 
