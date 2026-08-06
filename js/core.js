@@ -146,6 +146,25 @@ const MusicPlayerCore = {
     },
 
     // ============================================================
+    // 获取当前通道对应的刷新函数
+    // ============================================================
+
+    getRefreshFunction(track) {
+        if (track.source === 'qishui') {
+            // 汽水只有通道一
+            return window.refreshQishuiSongUrl1 || null;
+        } else {
+            // 网易云根据通道选择
+            const channel = window.getCurrentNeteaseChannel ? window.getCurrentNeteaseChannel() : 1;
+            if (channel === 1) {
+                return window.refreshSongUrl1 || null;
+            } else {
+                return window.refreshSongUrl2 || null;
+            }
+        }
+    },
+
+    // ============================================================
     // 播放控制
     // ============================================================
 
@@ -175,15 +194,10 @@ const MusicPlayerCore = {
                         window.showStatus('链接已失效，正在重新获取...', 'info');
                     }
                     
+                    const refreshFn = this.getRefreshFunction(track);
                     let newUrl = null;
-                    if (track.source === 'qishui') {
-                        if (typeof window.refreshQishuiSongUrl === 'function') {
-                            newUrl = await window.refreshQishuiSongUrl(track.shareLink);
-                        }
-                    } else {
-                        if (typeof window.refreshSongUrl === 'function') {
-                            newUrl = await window.refreshSongUrl(track.shareLink);
-                        }
+                    if (refreshFn) {
+                        newUrl = await refreshFn(track.shareLink);
                     }
                     
                     if (newUrl) {
@@ -259,7 +273,7 @@ const MusicPlayerCore = {
     },
 
     // ============================================================
-    // 缓存功能
+    // 缓存功能（一键重新获取）
     // ============================================================
 
     async cacheAllSongs() {
@@ -293,15 +307,10 @@ const MusicPlayerCore = {
             if (!track.shareLink) continue;
 
             try {
+                const refreshFn = this.getRefreshFunction(track);
                 let newUrl = null;
-                if (track.source === 'qishui') {
-                    if (typeof window.refreshQishuiSongUrl === 'function') {
-                        newUrl = await window.refreshQishuiSongUrl(track.shareLink);
-                    }
-                } else {
-                    if (typeof window.refreshSongUrl === 'function') {
-                        newUrl = await window.refreshSongUrl(track.shareLink);
-                    }
+                if (refreshFn) {
+                    newUrl = await refreshFn(track.shareLink);
                 }
 
                 if (newUrl) {
