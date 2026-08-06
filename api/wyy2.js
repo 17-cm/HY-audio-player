@@ -3,9 +3,10 @@
  * 接口: https://api.bugpk.com/api/163_music
  * 作者: hy.禾一
  * 说明: 备用通道，函数名带 2 后缀
+ * 修改: BASE_URL 改为 BASE_URL_WYY2，避免与 wyy1.js 冲突
  */
 
-const BASE_URL = 'https://api.bugpk.com/api/163_music';
+const BASE_URL_WYY2 = 'https://api.bugpk.com/api/163_music';
 const DEFAULT_LEVEL = 'exhigh';
 
 // ==========================================
@@ -49,7 +50,7 @@ async function fetchNeteaseSongInfo2(link) {
         let requestUrl;
 
         if (inspected.type === 'shortlink' || inspected.type === 'song') {
-            requestUrl = `${BASE_URL}?type=json&url=${encodeURIComponent(url)}&level=${DEFAULT_LEVEL}`;
+            requestUrl = `${BASE_URL_WYY2}?type=json&url=${encodeURIComponent(url)}&level=${DEFAULT_LEVEL}`;
         } else {
             throw new Error('不支持的链接类型');
         }
@@ -89,15 +90,15 @@ async function refreshSongUrl2(shareLink) {
     let requestUrl;
 
     if (inspected.type === 'shortlink' || inspected.type === 'song') {
-        requestUrl = `${BASE_URL}?type=json&url=${encodeURIComponent(url)}&level=${DEFAULT_LEVEL}`;
+        requestUrl = `${BASE_URL_WYY2}?type=json&url=${encodeURIComponent(url)}&level=${DEFAULT_LEVEL}`;
     } else if (inspected.type === 'playlist') {
         if (inspected.id) {
-            requestUrl = `${BASE_URL}?type=json&id=${inspected.id}&level=${DEFAULT_LEVEL}`;
+            requestUrl = `${BASE_URL_WYY2}?type=json&id=${inspected.id}&level=${DEFAULT_LEVEL}`;
         } else {
             return null;
         }
     } else {
-        requestUrl = `${BASE_URL}?type=json&url=${encodeURIComponent(url)}&level=${DEFAULT_LEVEL}`;
+        requestUrl = `${BASE_URL_WYY2}?type=json&url=${encodeURIComponent(url)}&level=${DEFAULT_LEVEL}`;
     }
 
     try {
@@ -129,7 +130,7 @@ async function fetchNeteasePlaylist2(link) {
             throw new Error('无法提取歌单ID');
         }
 
-        const response = await fetch(`${BASE_URL}?type=playlist&id=${inspected.id}`);
+        const response = await fetch(`${BASE_URL_WYY2}?type=playlist&id=${inspected.id}`);
         if (!response.ok) throw new Error(`请求失败: ${response.status}`);
 
         const result = await response.json();
