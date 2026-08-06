@@ -1,11 +1,11 @@
 /**
  * api/wyy1.js - 网易云音乐解析模块（通道一）
- * 接口: https://api.qiieye.cn/meting/
+ * 接口: https://api.qijeya.cn/meting/
  * 作者: hy.禾一
  * 说明: 默认通道，支持VIP歌曲、歌单，函数名带 1 后缀
  */
 
-const BASE_URL = 'https://api.qiieye.cn/meting/';
+const BASE_URL = 'https://api.qijeya.cn/meting/';
 
 // ==========================================
 // 工具函数（仅单曲和歌单）
