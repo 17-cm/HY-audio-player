@@ -1,8 +1,10 @@
 /**
  * 音乐播放器扩展入口
- * 版本: 1.0.8
+ * 版本: 1.0.9
  * 作者: hy.禾一
  * 仓库: https://github.com/17-cm/HY-audio-player.git
+ * 
+ * 修改: 添加生命周期钩子，支持数据持久化到 extension_settings
  */
 
 import { extension_settings } from '../../../extensions.js';
@@ -10,6 +12,7 @@ import { saveSettingsDebounced } from '../../../../script.js';
 
 const EXTENSION_NAME = 'music_player';
 const EXTENSION_FOLDER = 'HY-audio-player';
+const MODULE_NAME = 'music_player_data';  // 与 core.js 保持一致
 
 console.log('🎵 音乐播放器扩展加载中...');
 
@@ -22,41 +25,6 @@ const DEFAULT_SETTINGS = {
     neteaseChannel: 1,  // 1 = qijie, 2 = bugpk
     qishuiChannel: 1    // 1 = pearapi, 2 = 预留
 };
-
-// ============================================================
-// 模块加载
-// ============================================================
-
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
-
-async function loadAllModules() {
-    const basePath = `/scripts/extensions/third-party/${EXTENSION_FOLDER}/`;
-    try {
-        // 加载工具
-        await loadScript(basePath + 'js/utils.js');
-        // 加载API模块
-        await loadScript(basePath + 'api/wyy1.js');
-        await loadScript(basePath + 'api/wyy2.js');
-        await loadScript(basePath + 'api/qs1.js');
-        // 加载核心
-        await loadScript(basePath + 'js/core.js');
-        await loadScript(basePath + 'js/ui-core.js');
-        await loadScript(basePath + 'js/ui-helpers.js');
-        await loadScript(basePath + 'js/ui-playlist.js');
-        await loadScript(basePath + 'js/ui-events.js');
-        initPlayer();
-    } catch (error) {
-        console.error('❌ 模块加载失败:', error);
-    }
-}
 
 // ============================================================
 // 设置管理
@@ -107,7 +75,42 @@ function getVersion() {
             if (versionMatch) return versionMatch[1];
         } catch (e) {}
     }
-    return '1.0.8';
+    return '1.0.9';
+}
+
+// ============================================================
+// 模块加载
+// ============================================================
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+async function loadAllModules() {
+    const basePath = `/scripts/extensions/third-party/${EXTENSION_FOLDER}/`;
+    try {
+        // 加载工具
+        await loadScript(basePath + 'js/utils.js');
+        // 加载API模块
+        await loadScript(basePath + 'api/wyy1.js');
+        await loadScript(basePath + 'api/wyy2.js');
+        await loadScript(basePath + 'api/qs1.js');
+        // 加载核心
+        await loadScript(basePath + 'js/core.js');
+        await loadScript(basePath + 'js/ui-core.js');
+        await loadScript(basePath + 'js/ui-helpers.js');
+        await loadScript(basePath + 'js/ui-playlist.js');
+        await loadScript(basePath + 'js/ui-events.js');
+        initPlayer();
+    } catch (error) {
+        console.error('❌ 模块加载失败:', error);
+    }
 }
 
 // ============================================================
@@ -250,6 +253,60 @@ function showChannelSwitchDialog() {
 }
 
 // ============================================================
+// 使用说明弹窗
+// ============================================================
+
+function showHelp() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+        display: flex; justify-content: center; align-items: center;
+        z-index: 2147483647; padding: 20px; box-sizing: border-box;
+    `;
+
+    overlay.innerHTML = `
+        <div style="
+            background: #2a2a2a; border-radius: 16px; padding: 28px 24px;
+            max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto;
+            color: #fff; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            line-height: 1.6;
+        ">
+            <div style="text-align: center; margin-bottom: 16px;">
+                <span style="font-size: 36px;">🎵</span>
+                <h2 style="margin: 4px 0; font-size: 18px;">音乐播放器</h2>
+                <p style="margin: 0; opacity: 0.4; font-size: 12px;">hy.禾一</p>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px;">
+                <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">🎯 通道切换</div>
+                <div style="font-size: 12px; opacity: 0.8;">在扩展面板点击"通道切换"，可切换网易云/汽水的解析通道</div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px;">
+                <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">📋 导入歌曲</div>
+                <div style="font-size: 12px; opacity: 0.8;">支持网易云单曲、歌单链接，汽水音乐单曲链接</div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px;">
+                <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">⚠️ 重要</div>
+                <div style="font-size: 12px; opacity: 0.8;">导入后点击"⟳ 一键缓存"刷新链接，防止失效</div>
+            </div>
+
+            <button id="help-close-btn" style="
+                width: 100%; padding: 10px; border: none; border-radius: 8px;
+                background: rgba(255,255,255,0.1); color: #999; cursor: pointer; font-size: 13px; margin-top: 12px;
+            ">关闭</button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#help-close-btn').onclick = () => overlay.remove();
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+}
+
+// ============================================================
 // 创建扩展面板
 // ============================================================
 
@@ -344,60 +401,6 @@ function createExtensionPanel() {
 }
 
 // ============================================================
-// 使用说明弹窗
-// ============================================================
-
-function showHelp() {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
-        display: flex; justify-content: center; align-items: center;
-        z-index: 2147483647; padding: 20px; box-sizing: border-box;
-    `;
-
-    overlay.innerHTML = `
-        <div style="
-            background: #2a2a2a; border-radius: 16px; padding: 28px 24px;
-            max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto;
-            color: #fff; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-            line-height: 1.6;
-        ">
-            <div style="text-align: center; margin-bottom: 16px;">
-                <span style="font-size: 36px;">🎵</span>
-                <h2 style="margin: 4px 0; font-size: 18px;">音乐播放器</h2>
-                <p style="margin: 0; opacity: 0.4; font-size: 12px;">hy.禾一</p>
-            </div>
-
-            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px;">
-                <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">🎯 通道切换</div>
-                <div style="font-size: 12px; opacity: 0.8;">在扩展面板点击"通道切换"，可切换网易云/汽水的解析通道</div>
-            </div>
-
-            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px;">
-                <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">📋 导入歌曲</div>
-                <div style="font-size: 12px; opacity: 0.8;">支持网易云单曲、歌单链接，汽水音乐单曲链接</div>
-            </div>
-
-            <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px;">
-                <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">⚠️ 重要</div>
-                <div style="font-size: 12px; opacity: 0.8;">导入后点击"⟳ 一键缓存"刷新链接，防止失效</div>
-            </div>
-
-            <button id="help-close-btn" style="
-                width: 100%; padding: 10px; border: none; border-radius: 8px;
-                background: rgba(255,255,255,0.1); color: #999; cursor: pointer; font-size: 13px; margin-top: 12px;
-            ">关闭</button>
-        </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    overlay.querySelector('#help-close-btn').onclick = () => overlay.remove();
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-}
-
-// ============================================================
 // 初始化播放器
 // ============================================================
 
@@ -420,6 +423,133 @@ function initPlayer() {
 }
 
 // ============================================================
+// 🎯 生命周期钩子（export）
+// ============================================================
+
+/**
+ * 安装时调用
+ * 用于：初始化默认数据
+ */
+export async function onInstall() {
+    console.log('🎵 音乐播放器安装中...');
+    
+    // 尝试初始化数据（core.loadData 会自动处理）
+    if (window.MusicPlayerCore && typeof window.MusicPlayerCore.loadData === 'function') {
+        // 延迟执行，确保其他模块已加载
+        setTimeout(() => {
+            window.MusicPlayerCore.loadData();
+        }, 100);
+    }
+    
+    console.log('✅ 音乐播放器安装完成');
+}
+
+/**
+ * 激活时调用（页面加载期间）
+ * 用于：启动扩展
+ */
+export async function onActivate() {
+    console.log('🎵 音乐播放器激活');
+    // 正常初始化由 initPlayer 完成，这里不需要额外操作
+}
+
+/**
+ * 更新时调用
+ * 用于：数据迁移（版本更新时）
+ */
+export async function onUpdate() {
+    console.log('🎵 音乐播放器更新中...');
+    
+    // 检查是否需要数据迁移
+    if (window.MusicPlayerCore && typeof window.MusicPlayerCore.loadData === 'function') {
+        // 重新加载数据（会自动处理迁移）
+        window.MusicPlayerCore.loadData();
+    }
+    
+    console.log('✅ 音乐播放器更新完成');
+}
+
+/**
+ * 卸载时调用
+ * 用于：清理数据、移除 UI
+ * 🔥 解决卸载重装提示"已存在"的问题
+ */
+export async function onDelete() {
+    console.log('🗑️ 音乐播放器卸载中...');
+    
+    // 1. 清理播放器数据
+    if (window.MusicPlayerCore && typeof window.MusicPlayerCore.clearData === 'function') {
+        window.MusicPlayerCore.clearData();
+    }
+    
+    // 2. 清理 UI 元素
+    const elementsToRemove = [
+        'player-root',
+        'player-status',
+        'player-mini-icon',
+        'player-rhythm-icon',
+        'cache-progress-overlay'
+    ];
+    
+    elementsToRemove.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    });
+    
+    // 3. 清理任何残留的弹窗
+    document.querySelectorAll('.player-dialog-overlay, .help-dialog, .player-status, .cache-progress-overlay').forEach(el => {
+        el.remove();
+    });
+    
+    // 4. 清理动态添加的样式（如果有）
+    // 注意：style.css 是通过 link 加载的，卸载时不需要移除，因为酒馆会重新加载页面
+    
+    console.log('✅ 音乐播放器已清理完成');
+    
+    // 返回 Promise 让酒馆等待清理完成
+    return Promise.resolve();
+}
+
+/**
+ * 启用时调用
+ */
+export function onEnable() {
+    console.log('🎵 音乐播放器已启用');
+    // 显示播放器
+    if (typeof window.showUI === 'function') {
+        window.showUI();
+    }
+}
+
+/**
+ * 禁用时调用
+ */
+export function onDisable() {
+    console.log('🎵 音乐播放器已禁用');
+    // 隐藏播放器
+    if (typeof window.hideUI === 'function') {
+        window.hideUI();
+    }
+}
+
+/**
+ * 清理数据时调用（用户点击"清理扩展数据"）
+ */
+export async function onClean() {
+    console.log('🧹 音乐播放器数据清理');
+    
+    if (window.MusicPlayerCore && typeof window.MusicPlayerCore.clearData === 'function') {
+        window.MusicPlayerCore.clearData();
+    }
+    
+    if (typeof toastr !== 'undefined') {
+        toastr.success('音乐播放器数据已清理');
+    }
+    
+    return Promise.resolve();
+}
+
+// ============================================================
 // 暴露到全局（供其他模块使用）
 // ============================================================
 
@@ -433,6 +563,9 @@ window.saveExtensionSettings = saveExtensionSettings;
 // ============================================================
 
 $(document).ready(() => {
+    // 先创建扩展面板（同步）
     createExtensionPanel();
+    
+    // 再加载所有模块（异步）
     loadAllModules();
 });
