@@ -1,6 +1,8 @@
 /**
- * api/qs.js - 汽水音乐解析模块
+ * api/qs1.js - 汽水音乐解析模块（通道一）
+ * 接口: https://api.pearapi.ai/api/qishui_music
  * 作者: hy.禾一
+ * 说明: 默认通道，函数名带 1 后缀
  */
 
 const QISHUI_BASE = 'https://api.pearapi.ai/api/qishui_music';
@@ -9,7 +11,7 @@ const QISHUI_BASE = 'https://api.pearapi.ai/api/qishui_music';
 // 1. 获取单曲信息
 // ==========================================
 
-async function fetchQishuiSongInfo(link) {
+async function fetchQishuiSongInfo1(link) {
     try {
         const url = link.trim();
         if (!url) throw new Error('请输入链接');
@@ -32,7 +34,7 @@ async function fetchQishuiSongInfo(link) {
             lyrics: song.lyrics || '',
             cover: song.cover || '',
             duration: '0:00',
-            shareLink: url,        // 存分享链接
+            shareLink: url,
             source: 'qishui'
         };
     } catch (error) {
@@ -45,7 +47,7 @@ async function fetchQishuiSongInfo(link) {
 // 2. 刷新播放链接
 // ==========================================
 
-async function refreshQishuiSongUrl(shareLink) {
+async function refreshQishuiSongUrl1(shareLink) {
     if (!shareLink) return null;
     
     try {
@@ -64,7 +66,7 @@ async function refreshQishuiSongUrl(shareLink) {
 // 3. 歌单（暂不支持）
 // ==========================================
 
-async function fetchQishuiPlaylist(link) {
+async function fetchQishuiPlaylist1(link) {
     throw new Error('汽水音乐歌单解析暂不支持');
 }
 
@@ -72,6 +74,6 @@ async function fetchQishuiPlaylist(link) {
 // 暴露到全局
 // ==========================================
 
-window.fetchQishuiSongInfo = fetchQishuiSongInfo;
-window.refreshQishuiSongUrl = refreshQishuiSongUrl;
-window.fetchQishuiPlaylist = fetchQishuiPlaylist;
+window.fetchQishuiSongInfo1 = fetchQishuiSongInfo1;
+window.refreshQishuiSongUrl1 = refreshQishuiSongUrl1;
+window.fetchQishuiPlaylist1 = fetchQishuiPlaylist1;
