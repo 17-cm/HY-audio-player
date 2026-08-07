@@ -11,8 +11,8 @@ function loadCSS() {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = '/scripts/extensions/third-party/HY-audio-player/style.css';
-    link.onload = () => console.log('✅ 播放器样式加载完成');
-    link.onerror = () => console.error('❌ 播放器样式加载失败');
+    link.onload = () => console.log('播放器样式加载完成');
+    link.onerror = () => console.error('播放器样式加载失败');
     document.head.appendChild(link);
 }
 
@@ -429,16 +429,7 @@ function createUI() {
     document.addEventListener('mouseup', handleDragEnd);
     document.addEventListener('touchend', handleDragEnd);
 
-    const settings = window.extension_settings?.['music_player'] || {};
-    if (settings.miniIconVisible !== false) {
-        miniIcon.style.display = 'flex';
-    } else {
-        miniIcon.style.display = 'none';
-    }
-
-    // ============================================================
-    // 🔥 唯一改动：启动后默认隐藏播放器面板（U1）
-    // ============================================================
+    // 启动后默认隐藏播放器面板
     const playerRoot = document.getElementById('player-root');
     if (playerRoot) {
         playerRoot.style.display = 'none';
@@ -588,6 +579,10 @@ function updateView() {
 
     updateSettingsPanel();
 }
+
+// ============================================================
+// 更新设置面板
+// ============================================================
 
 function updateSettingsPanel() {
     const core = window.MusicPlayerCore;
