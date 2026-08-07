@@ -33,6 +33,7 @@ const MusicPlayerCore = {
     playlist: [],
     index: -1,
     audio: new Audio(),
+    _customApiConfig: null,
     state: {
         playMode: 0,
         rgbMode: 0,
@@ -54,6 +55,10 @@ const MusicPlayerCore = {
     drag: { active: false, offX: 0, offY: 0 },
     STORAGE_KEY: 'music_player_data',
 
+    // ============================================================
+    // 初始化
+    // ============================================================
+
     init() {
         this.loadData();
         this.bindAudioEvents();
@@ -62,29 +67,88 @@ const MusicPlayerCore = {
         }
     },
 
+    // ============================================================
+    // 存储工具
+    // ============================================================
+
+    _getExtensionSettings() {
+        if (typeof SillyTavern !== 'undefined' && typeof SillyTavern.getContext === 'function') {
+            try {
+                const ctx = SillyTavern.getContext();
+                if (ctx && ctx.extensionSettings) {
+                    return ctx.extensionSettings;
+                }
+            } catch (e) {}
+        }
+        if (typeof extension_settings !== 'undefined') {
+            return extension_settings;
+        }
+        return null;
+    },
+
+    _getSaveFunction() {
+        if (typeof SillyTavern !== 'undefined' && typeof SillyTavern.getContext === 'function') {
+            try {
+                const ctx = SillyTavern.getContext();
+                if (ctx && typeof ctx.saveSettingsDebounced === 'function') {
+                    return ctx.saveSettingsDebounced;
+                }
+            } catch (e) {}
+        }
+        if (typeof saveSettingsDebounced !== 'undefined') {
+            return saveSettingsDebounced;
+        }
+        return null;
+    },
+
+    // ============================================================
+    // 数据持久化
+    // ============================================================
+
     loadData() {
+        // 1. 歌单 + 播放状态（localStorage）
         try {
             const raw = localStorage.getItem(this.STORAGE_KEY);
             if (raw) {
                 const data = JSON.parse(raw);
                 this.playlist = data.playlist || [];
                 if (data.state) {
-                    this.state = { ...this.state, ...data.state };
-                    this.state.cfg = { ...defaultConfig, ...data.state.cfg };
-                    
-                    const checkPos = (pos, def) => {
-                        if (pos && (pos.x > window.innerWidth - 50 || pos.y > window.innerHeight - 50)) {
-                            pos.x = def.x;
-                            pos.y = def.y;
-                        }
-                        return pos;
-                    };
-                    this.state.playerPos = checkPos(this.state.playerPos, defaultConfig.pos);
-                    this.state.rhythmIconPos = checkPos(this.state.rhythmIconPos, { x: 20, y: 300 });
+                    const s = data.state;
+                    this.state.playMode = s.playMode ?? 0;
+                    this.state.isPureMode = s.isPureMode ?? false;
+                    this.state.isRhythmMode = s.isRhythmMode ?? false;
+                    this.state.glass = s.glass ?? true;
+                    this.state.glassOpacity = s.glassOpacity ?? 0.6;
+                    this.state.speed = s.speed ?? 1.0;
+                    this.state.panel = false;
+                    this.state.isCaching = false;
+                    this.state.playerPos = s.playerPos || { x: 20, y: 100 };
+                    this.state.rhythmIconPos = s.rhythmIconPos || { x: 20, y: 300 };
+                    this.state.importHistory = s.importHistory || [];
+                    this.state.lyrics = [];
+                    this.state.currentLyricIndex = -1;
+                    this.state.rgbMode = s.rgbMode ?? 0;
                 }
             }
         } catch (e) {
-            console.warn('数据加载失败:', e);
+            console.warn('歌单加载失败:', e);
+        }
+
+        // 2. 自定义样式 + 自定义接口配置（extension_settings）
+        try {
+            const ext = this._getExtensionSettings();
+            if (ext) {
+                const cfgKey = 'music_player_cfg';
+                if (ext[cfgKey]) {
+                    this.state.cfg = { ...defaultConfig, ...ext[cfgKey] };
+                }
+                const apiKey = 'music_player_custom_api';
+                if (ext[apiKey]) {
+                    this._customApiConfig = ext[apiKey];
+                }
+            }
+        } catch (e) {
+            console.warn('样式/接口配置加载失败:', e);
         }
 
         this.state.panel = false;
@@ -95,14 +159,39 @@ const MusicPlayerCore = {
     },
 
     saveData() {
+        // 1. 歌单 + 播放状态（localStorage）
         try {
             const data = {
                 playlist: this.playlist,
-                state: this.state
+                state: {
+                    playMode: this.state.playMode,
+                    isPureMode: this.state.isPureMode,
+                    isRhythmMode: this.state.isRhythmMode,
+                    glass: this.state.glass,
+                    glassOpacity: this.state.glassOpacity,
+                    speed: this.state.speed,
+                    playerPos: this.state.playerPos,
+                    rhythmIconPos: this.state.rhythmIconPos,
+                    importHistory: this.state.importHistory,
+                    rgbMode: this.state.rgbMode
+                }
             };
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
         } catch (e) {
-            console.warn('数据保存失败:', e);
+            console.warn('歌单保存失败:', e);
+        }
+
+        // 2. 自定义样式 + 自定义接口配置（extension_settings）
+        try {
+            const ext = this._getExtensionSettings();
+            if (ext) {
+                ext.music_player_cfg = this.state.cfg;
+                ext.music_player_custom_api = this._customApiConfig || null;
+                const saveFn = this._getSaveFunction();
+                if (saveFn) saveFn();
+            }
+        } catch (e) {
+            console.warn('样式/接口配置保存失败:', e);
         }
     },
 
@@ -112,17 +201,30 @@ const MusicPlayerCore = {
         } catch (e) {
             console.warn('数据清理失败:', e);
         }
-        
+        try {
+            const ext = this._getExtensionSettings();
+            if (ext) {
+                delete ext.music_player_cfg;
+                delete ext.music_player_custom_api;
+                const saveFn = this._getSaveFunction();
+                if (saveFn) saveFn();
+            }
+        } catch (e) {
+            console.warn('extension_settings 清理失败:', e);
+        }
         this.playlist = [];
         this.index = -1;
         this.state.lyrics = [];
         this.state.importHistory = [];
         this.audio.pause();
         this.audio.src = '';
-
         if (typeof window.updateView === 'function') window.updateView();
         if (typeof window.renderList === 'function') window.renderList();
     },
+
+    // ============================================================
+    // 导入历史
+    // ============================================================
 
     addImportHistory(type, data) {
         const history = {
@@ -137,6 +239,10 @@ const MusicPlayerCore = {
         this.saveData();
     },
 
+    // ============================================================
+    // 获取当前通道对应的刷新函数
+    // ============================================================
+
     getRefreshFunction(track) {
         if (track.source === 'qishui') {
             return window.refreshQishuiSongUrl1 || null;
@@ -150,6 +256,10 @@ const MusicPlayerCore = {
         }
     },
 
+    // ============================================================
+    // 播放控制
+    // ============================================================
+
     async play(i) {
         if (!this.playlist[i]) return;
 
@@ -159,6 +269,7 @@ const MusicPlayerCore = {
         this.index = i;
         const track = this.playlist[i];
 
+        // 如果有 shareLink，检测链接是否有效，失效则刷新
         if (track.shareLink) {
             try {
                 const testAudio = new Audio();
@@ -174,13 +285,13 @@ const MusicPlayerCore = {
                     if (typeof window.showStatus === 'function') {
                         window.showStatus('链接已失效，正在重新获取...', 'info');
                     }
-                    
+
                     const refreshFn = this.getRefreshFunction(track);
                     let newUrl = null;
                     if (refreshFn) {
                         newUrl = await refreshFn(track.shareLink);
                     }
-                    
+
                     if (newUrl) {
                         track.url = newUrl;
                         this.saveData();
@@ -248,6 +359,10 @@ const MusicPlayerCore = {
         let n = this.index - 1 < 0 ? this.playlist.length - 1 : this.index - 1;
         this.play(n);
     },
+
+    // ============================================================
+    // 缓存功能（一键重新获取）
+    // ============================================================
 
     async cacheAllSongs() {
         if (this.state.isCaching) {
@@ -322,6 +437,10 @@ const MusicPlayerCore = {
         }
     },
 
+    // ============================================================
+    // 歌词解析
+    // ============================================================
+
     parseLyrics(lrc) {
         if (!lrc || typeof lrc !== 'string') return [];
         const lines = lrc.split('\n');
@@ -337,6 +456,10 @@ const MusicPlayerCore = {
         }
         return result.sort((a, b) => a.time - b.time);
     },
+
+    // ============================================================
+    // 音频事件绑定
+    // ============================================================
 
     bindAudioEvents() {
         this.audio.onplay = () => {
