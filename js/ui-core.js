@@ -435,6 +435,14 @@ function createUI() {
     } else {
         miniIcon.style.display = 'none';
     }
+
+    // ============================================================
+    // 🔥 唯一改动：启动后默认隐藏播放器面板（U1）
+    // ============================================================
+    const playerRoot = document.getElementById('player-root');
+    if (playerRoot) {
+        playerRoot.style.display = 'none';
+    }
 }
 
 // ============================================================
