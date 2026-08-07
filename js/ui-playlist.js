@@ -18,7 +18,7 @@ function renderList() {
     core.playlist.forEach((t, i) => {
         const item = document.createElement('div');
         item.className = `list-item ${i === core.index ? 'active' : ''}`;
-        const sourceLabel = t.source === 'qishui' ? '🍹' : '🎵';
+        const sourceLabel = t.source === 'qishui' ? '🍹' : t.source === 'custom' ? '🔌' : '🎵';
         item.innerHTML = `
             <div class="item-info"><b>${t.title} - ${t.artist}</b> <span style="opacity:0.4;font-size:11px;">${sourceLabel}</span></div>
             <div class="item-btns">
@@ -136,6 +136,17 @@ function showAddOptions() {
                     color: #1a1a1a;
                     transition: all 0.2s;
                 ">🎵 网易云音乐</button>
+                <button id="source-custom" style="
+                    padding: 14px;
+                    background: #f5f5f5;
+                    border: 1px solid #e8e8e8;
+                    border-radius: 12px;
+                    cursor: pointer;
+                    font-size: 15px;
+                    font-weight: 500;
+                    color: #1a1a1a;
+                    transition: all 0.2s;
+                ">🔌 自定义接口</button>
                 <button id="source-cancel" style="
                     margin-top: 6px;
                     background: none;
@@ -157,8 +168,10 @@ function showAddOptions() {
 
     const qishuiBtn = overlay.querySelector('#source-qishui');
     const neteaseBtn = overlay.querySelector('#source-netease');
+    const customBtn = overlay.querySelector('#source-custom');
     hoverStyle(qishuiBtn);
     hoverStyle(neteaseBtn);
+    hoverStyle(customBtn);
 
     qishuiBtn.onclick = () => {
         overlay.remove();
@@ -181,12 +194,10 @@ function showAddOptions() {
             '添加网易云单曲',
             '支持单曲导入、歌单导入，输入分享链接。歌单导入请自建歌单少量多次，防止崩溃。',
             async (input) => {
-                // 使用通道一的检测函数（wyy1）
                 if (typeof window.isNeteaseLink1 === 'function' && !window.isNeteaseLink1(input)) {
                     window.showStatus('请输入有效的网易云链接', 'error');
                     return;
                 }
-                // 使用通道一的歌单检测
                 if (typeof window.isPlaylistLink1 === 'function' && window.isPlaylistLink1(input)) {
                     await doAddPlaylist(input);
                 } else {
@@ -196,8 +207,141 @@ function showAddOptions() {
         );
     };
 
+    customBtn.onclick = () => {
+        overlay.remove();
+        window.showInputDialog(
+            '自定义接口',
+            '输入分享链接或歌曲 ID',
+            async (input) => {
+                await doAddCustomSong(input);
+            }
+        );
+    };
+
     overlay.querySelector('#source-cancel').onclick = () => overlay.remove();
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+}
+
+// ============================================================
+// 自定义接口解析
+// ============================================================
+
+function extractIdFromInput(input) {
+    const trimmed = input.trim();
+    // 如果已经是纯数字
+    if (/^\d+$/.test(trimmed)) {
+        return trimmed;
+    }
+    // 尝试从链接中提取 id
+    const match = trimmed.match(/[?&]id=(\d+)/);
+    if (match) {
+        return match[1];
+    }
+    // 尝试匹配路径中的数字（如 /song/123456/）
+    const pathMatch = trimmed.match(/\/(\d{5,})\//);
+    if (pathMatch) {
+        return pathMatch[1];
+    }
+    return null;
+}
+
+function getCustomApiConfig() {
+    try {
+        const raw = localStorage.getItem('music_player_custom_api');
+        if (raw) {
+            return JSON.parse(raw);
+        }
+    } catch (e) {}
+    return null;
+}
+
+async function doAddCustomSong(input) {
+    const core = window.MusicPlayerCore;
+    if (!core) {
+        window.showStatus('播放器未初始化', 'error');
+        return;
+    }
+
+    const id = extractIdFromInput(input);
+    if (!id) {
+        window.showStatus('无法提取歌曲 ID，请输入有效的分享链接或纯数字 ID', 'error');
+        return;
+    }
+
+    const config = getCustomApiConfig();
+    if (!config || !config.url) {
+        window.showStatus('请先在扩展面板设置自定义接口', 'error');
+        return;
+    }
+
+    const url = config.url + '?' + config.params.replace(/\{id\}/g, id);
+    window.showStatus('正在解析...', 'info');
+
+    try {
+        const response = await fetch(url, {
+            method: config.method || 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`请求失败: ${response.status}`);
+        }
+
+        const data = await response.json();
+        let songData = Array.isArray(data) ? data[0] : data;
+
+        if (!songData || !songData.name) {
+            throw new Error('未找到歌曲信息');
+        }
+
+        // 获取播放链接
+        let songUrl = songData.url || '';
+        if (!songUrl && songData.id) {
+            // 如果返回的数据只有 id，尝试用相同接口重新获取 url
+            const urlResp = await fetch(config.url + '?' + config.params.replace(/\{id\}/g, songData.id), {
+                method: config.method || 'GET',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            });
+            if (urlResp.ok) {
+                const urlData = await urlResp.json();
+                const urlSong = Array.isArray(urlData) ? urlData[0] : urlData;
+                if (urlSong && urlSong.url) {
+                    songUrl = urlSong.url;
+                }
+            }
+        }
+
+        core.playlist.push({
+            title: songData.name || '未知歌曲',
+            artist: songData.artist || songData.singer || '未知艺术家',
+            url: songUrl || '',
+            lyrics: songData.lyrics || songData.lrc || '',
+            cover: songData.cover || songData.pic || '',
+            shareLink: input,
+            source: 'custom'
+        });
+
+        core.addImportHistory('single', {
+            title: songData.name || '未知歌曲',
+            artist: songData.artist || songData.singer || '未知艺术家',
+            link: input,
+            source: 'custom'
+        });
+
+        core.saveData();
+        renderList();
+        window.showStatus(`成功添加: ${songData.name || '未知歌曲'}`, 'success');
+
+        if (core.index === -1) {
+            core.play(core.playlist.length - 1);
+        }
+    } catch (error) {
+        window.showStatus(`添加失败: ${error.message}`, 'error');
+    }
 }
 
 // ============================================================
@@ -258,7 +402,6 @@ async function doAddSong(input, source) {
             window.showStatus(`添加失败: ${error.message}`, 'error');
         }
     } else if (source === 'qishui') {
-        // 汽水走通道一
         window.showStatus('正在使用汽水通道一解析...', 'info');
         try {
             if (typeof window.fetchQishuiSongInfo1 !== 'function') {
@@ -372,7 +515,6 @@ async function importPlaylistTracks(playlist, link, channel) {
 
         try {
             let songInfo;
-            // 根据通道获取单曲信息
             if (channel === 1) {
                 if (typeof window.fetchNeteaseSongInfo1 === 'function') {
                     songInfo = await window.fetchNeteaseSongInfo1(track.shareLink);
@@ -562,3 +704,6 @@ window.doAddPlaylist = doAddPlaylist;
 window.importPlaylistTracks = importPlaylistTracks;
 window.showLyricsDialog = showLyricsDialog;
 window.delSong = delSong;
+window.doAddCustomSong = doAddCustomSong;
+window.extractIdFromInput = extractIdFromInput;
+window.getCustomApiConfig = getCustomApiConfig;
