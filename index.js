@@ -10,15 +10,12 @@ import { saveSettingsDebounced } from '../../../../script.js';
 const EXTENSION_NAME = 'music_player';
 const EXTENSION_FOLDER = 'HY-audio-player';
 
-console.log('🎵 音乐播放器扩展加载中...');
-
 // ============================================================
 // 默认设置
 // ============================================================
 
 const DEFAULT_SETTINGS = {
-    miniIconVisible: true,
-    neteaseChannel: 1,
+    neteaseChannel: 2,
     qishuiChannel: 1
 };
 
@@ -49,7 +46,7 @@ function saveExtensionSettings() {
 
 function getCurrentNeteaseChannel() {
     const settings = getExtensionSettings();
-    return settings.neteaseChannel || 1;
+    return settings.neteaseChannel || 2;
 }
 
 function getCurrentQishuiChannel() {
@@ -101,7 +98,7 @@ async function loadAllModules() {
         await loadScript(basePath + 'js/ui-events.js');
         initPlayer();
     } catch (error) {
-        console.error('❌ 模块加载失败:', error);
+        console.error('模块加载失败:', error);
     }
 }
 
@@ -277,7 +274,6 @@ function showCustomApiDialog() {
     `;
     document.body.appendChild(overlay);
 
-    // 请求方式切换
     overlay.querySelectorAll('.api-method-btn').forEach(btn => {
         btn.onclick = function() {
             overlay.querySelectorAll('.api-method-btn').forEach(b => {
@@ -296,14 +292,14 @@ function showCustomApiDialog() {
         const statusEl = document.getElementById('custom-api-status');
         
         if (!url) {
-            statusEl.textContent = '⚠️ 请填写接口地址';
+            statusEl.textContent = '请填写接口地址';
             statusEl.style.color = '#e74c3c';
             return;
         }
         
         const config = { url, method, params };
         saveCustomApiConfig(config);
-        statusEl.textContent = '✅ 已保存！';
+        statusEl.textContent = '已保存';
         statusEl.style.color = '#27ae60';
         setTimeout(() => {
             overlay.remove();
@@ -327,7 +323,7 @@ function showCustomApiDialog() {
 
 function showChannelSwitchDialog() {
     const settings = getExtensionSettings();
-    const currentNetease = settings.neteaseChannel || 1;
+    const currentNetease = settings.neteaseChannel || 2;
     const currentQishui = settings.qishuiChannel || 1;
 
     const overlay = window.createOverlay();
@@ -418,7 +414,7 @@ function showChannelSwitchDialog() {
 }
 
 // ============================================================
-// 通道检测弹窗
+// 通道检测
 // ============================================================
 
 function showChannelTestDialog() {
@@ -470,10 +466,6 @@ function showChannelTestDialog() {
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 }
 
-// ============================================================
-// 检测结果弹窗
-// ============================================================
-
 function showResultDialog(title, result) {
     const overlay = window.createOverlay();
     const isSuccess = result.includes('✅');
@@ -504,35 +496,31 @@ function showResultDialog(title, result) {
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 }
 
-// ============================================================
-// 检测函数
-// ============================================================
-
 async function testQishuiChannel() {
-    showResultDialog('检测中...', '⏳ 正在检测汽水音乐通道...');
+    showResultDialog('检测中...', '正在检测汽水音乐通道...');
     try {
         const response = await fetch('https://api.pearapi.ai/api/qishui_music?url=https://music.163.com/song?id=1397345903');
         if (response.ok) {
             const data = await response.json();
             if (data.code === 200 && data.data && data.data.song_name) {
-                showResultDialog('检测成功', '✅ 汽水音乐通道可用');
+                showResultDialog('检测成功', '汽水音乐通道可用');
                 return;
             }
         }
-        showResultDialog('检测失败', '❌ 汽水音乐通道不可用');
+        showResultDialog('检测失败', '汽水音乐通道不可用');
     } catch (e) {
-        showResultDialog('检测失败', `❌ 汽水音乐通道不可用\n${e.message}`);
+        showResultDialog('检测失败', `汽水音乐通道不可用\n${e.message}`);
     }
 }
 
 async function testNeteaseChannel() {
-    showResultDialog('检测中...', '⏳ 正在检测网易云通道...');
+    showResultDialog('检测中...', '正在检测网易云通道...');
     try {
         const response = await fetch('https://api.qijeya.cn/meting/?type=song&id=1397345903');
         if (response.ok) {
             const data = await response.json();
             if (data && data[0] && data[0].name) {
-                showResultDialog('检测成功', '✅ 网易云通道一可用');
+                showResultDialog('检测成功', '网易云通道一可用');
                 return;
             }
         }
@@ -541,19 +529,19 @@ async function testNeteaseChannel() {
             if (resp2.ok) {
                 const data2 = await resp2.json();
                 if (data2.status === 200 && data2.name) {
-                    showResultDialog('检测成功', '✅ 网易云通道二可用');
+                    showResultDialog('检测成功', '网易云通道二可用');
                     return;
                 }
             }
         } catch (e2) {}
-        showResultDialog('检测失败', '❌ 网易云通道不可用');
+        showResultDialog('检测失败', '网易云通道不可用');
     } catch (e) {
-        showResultDialog('检测失败', `❌ 网易云通道不可用\n${e.message}`);
+        showResultDialog('检测失败', `网易云通道不可用\n${e.message}`);
     }
 }
 
 // ============================================================
-// 使用说明弹窗
+// 使用说明
 // ============================================================
 
 function showHelp() {
@@ -634,7 +622,7 @@ function showHelp() {
             </div>
 
             <div style="background: #fff3e0; border-radius: 12px; padding: 14px 16px; border: 1px solid #ffcc80; margin-bottom: 10px;">
-                <div style="font-weight: 600; font-size: 14px; color: #e65100; margin-bottom: 4px;">⚠️ 重要提示</div>
+                <div style="font-weight: 600; font-size: 14px; color: #e65100; margin-bottom: 4px;">重要提示</div>
                 <div style="font-size: 13px; color: #bf360c; line-height: 1.6;">
                     更换浏览器或重装酒馆后，使用「导入歌单」功能恢复歌曲列表。
                 </div>
@@ -682,7 +670,7 @@ function createExtensionPanel() {
 
                 <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                     <button type="button" id="mini-icon-toggle-btn" class="menu_button" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;">
-                        ${settings.miniIconVisible !== false ? '隐藏最小化图标' : '显示最小化图标'}
+                        最小化图标
                     </button>
                     <button type="button" id="show-help-btn" class="menu_button" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;">
                         使用说明
@@ -742,17 +730,15 @@ function createExtensionPanel() {
         };
     }
 
-    // 最小化控制
+    // 最小化控制（只切换显示，不储存）
     document.getElementById('mini-icon-toggle-btn').onclick = function() {
-        const settings = getExtensionSettings();
-        settings.miniIconVisible = !settings.miniIconVisible;
-        extension_settings[EXTENSION_NAME] = settings;
-        saveExtensionSettings();
-        const icon = document.getElementById('player-mini-icon');
-        if (icon) {
-            icon.style.display = settings.miniIconVisible ? 'flex' : 'none';
+        const root = document.getElementById('player-root');
+        const miniIcon = document.getElementById('player-mini-icon');
+        if (root && miniIcon) {
+            const isVisible = root.style.display !== 'none';
+            root.style.display = isVisible ? 'none' : 'flex';
+            miniIcon.style.display = isVisible ? 'flex' : 'none';
         }
-        this.textContent = settings.miniIconVisible ? '隐藏最小化图标' : '显示最小化图标';
     };
 
     // 使用说明
@@ -785,15 +771,13 @@ function initPlayer() {
         window.MusicPlayerCore.init();
     }
 
+    // 确保最小化图标初始显示，播放器面板隐藏
     setTimeout(() => {
-        const settings = getExtensionSettings();
-        const icon = document.getElementById('player-mini-icon');
-        if (icon) {
-            icon.style.display = settings.miniIconVisible !== false ? 'flex' : 'none';
-        }
+        const root = document.getElementById('player-root');
+        const miniIcon = document.getElementById('player-mini-icon');
+        if (root) root.style.display = 'none';
+        if (miniIcon) miniIcon.style.display = 'flex';
     }, 300);
-
-    console.log('✅ 音乐播放器扩展初始化完成');
 }
 
 // ============================================================
@@ -801,29 +785,22 @@ function initPlayer() {
 // ============================================================
 
 export async function onInstall() {
-    console.log('🎵 音乐播放器安装中...');
     if (window.MusicPlayerCore && typeof window.MusicPlayerCore.loadData === 'function') {
         setTimeout(() => {
             window.MusicPlayerCore.loadData();
         }, 100);
     }
-    console.log('✅ 音乐播放器安装完成');
 }
 
-export async function onActivate() {
-    console.log('🎵 音乐播放器激活');
-}
+export async function onActivate() {}
 
 export async function onUpdate() {
-    console.log('🎵 音乐播放器更新中...');
     if (window.MusicPlayerCore && typeof window.MusicPlayerCore.loadData === 'function') {
         window.MusicPlayerCore.loadData();
     }
-    console.log('✅ 音乐播放器更新完成');
 }
 
 export async function onDelete() {
-    console.log('🗑️ 音乐播放器卸载中...');
     if (window.MusicPlayerCore && typeof window.MusicPlayerCore.clearData === 'function') {
         window.MusicPlayerCore.clearData();
     }
@@ -841,26 +818,22 @@ export async function onDelete() {
     document.querySelectorAll('.player-dialog-overlay, .help-dialog, .player-status, .cache-progress-overlay').forEach(el => {
         el.remove();
     });
-    console.log('✅ 音乐播放器已清理完成');
     return Promise.resolve();
 }
 
 export function onEnable() {
-    console.log('🎵 音乐播放器已启用');
     if (typeof window.showUI === 'function') {
         window.showUI();
     }
 }
 
 export function onDisable() {
-    console.log('🎵 音乐播放器已禁用');
     if (typeof window.hideUI === 'function') {
         window.hideUI();
     }
 }
 
 export async function onClean() {
-    console.log('🧹 音乐播放器数据清理');
     if (window.MusicPlayerCore && typeof window.MusicPlayerCore.clearData === 'function') {
         window.MusicPlayerCore.clearData();
     }
