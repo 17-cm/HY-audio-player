@@ -32,6 +32,7 @@ function togglePanel(type) {
         }
     }
     window.updateView();
+    core.saveData();
 }
 
 function togglePureMode() {
@@ -90,7 +91,7 @@ function hideUI() {
 function bindEvents() {
     const core = window.MusicPlayerCore;
     if (!core) {
-        console.error('❌ MusicPlayerCore 未加载，无法绑定事件');
+        console.error('MusicPlayerCore 未加载，无法绑定事件');
         return;
     }
 
@@ -208,7 +209,6 @@ function bindEvents() {
             e.stopPropagation();
             const now = Date.now();
             if (now - lastClickTime < 300) {
-                // 双击返回 → 调用 core 里的退出函数
                 if (typeof window.exitRhythmMode === 'function') {
                     window.exitRhythmMode();
                 }
@@ -231,7 +231,7 @@ function bindEvents() {
         if (el) el.onclick = (e) => { e.stopPropagation(); fn(e); };
     };
 
-    // ===== 按钮事件绑定（只负责绑定，控制逻辑在 core 里） =====
+    // ===== 按钮事件绑定 =====
     click('btn-rhythm', () => {
         if (typeof window.toggleRhythmMode === 'function') {
             window.toggleRhythmMode();
@@ -293,6 +293,7 @@ function bindEvents() {
             el.oninput = (e) => {
                 core.state.cfg[key] = e.target.value;
                 window.updateView();
+                core.saveData();
             };
             el.onchange = () => core.saveData();
         }
@@ -303,7 +304,12 @@ function bindEvents() {
 
     const change = (id, fn) => {
         const el = document.getElementById(id);
-        if (el) el.onchange = (e) => { fn(e.target.value); core.saveData(); };
+        if (el) {
+            el.onchange = (e) => { 
+                fn(e.target.value); 
+                core.saveData();
+            };
+        }
     };
 
     change('inp-theme', v => { core.state.cfg.themeColor = v; window.updateView(); });
@@ -402,8 +408,6 @@ function bindEvents() {
             }
         };
     }
-
-    console.log('✅ 播放器事件绑定完成');
 }
 
 // ============================================================
