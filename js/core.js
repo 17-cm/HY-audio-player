@@ -1,7 +1,6 @@
 /**
  * core.js - 音乐播放器核心逻辑
  * 说明：播放控制、状态管理、数据持久化
- * 修改：存储机制从 localStorage 改为 extension_settings（酒馆同步）
  */
 
 // ============================================================
@@ -31,9 +30,6 @@ const defaultConfig = {
 // ============================================================
 
 const MusicPlayerCore = {
-    // ===== 模块标识（用于 extension_settings） =====
-    MODULE_NAME: 'music_player_data',
-
     // ===== 数据 =====
     playlist: [],
     index: -1,
@@ -62,156 +58,62 @@ const MusicPlayerCore = {
     // ===== 拖拽状态 =====
     drag: { active: false, offX: 0, offY: 0 },
 
-    // ===== 是否已从 extension_settings 加载过 =====
-    _loaded: false,
+    // ===== 储存键名 =====
+    STORAGE_KEY: 'music_player_data',
 
     // ============================================================
     // 初始化
     // ============================================================
 
     init() {
-        // 先加载数据
         this.loadData();
-
-        // 绑定音频事件
         this.bindAudioEvents();
-
-        // 绑定 UI 事件（由 ui-events 处理）
         if (typeof window.bindEvents === 'function') {
             window.bindEvents();
         }
-
         console.log('🎵 播放器核心初始化完成');
     },
 
     // ============================================================
-    // 存储工具：获取 extension_settings 对象
-    // ============================================================
-
-    _getStorage() {
-        // 优先从 SillyTavern 获取
-        if (typeof SillyTavern !== 'undefined' && typeof SillyTavern.getContext === 'function') {
-            try {
-                const ctx = SillyTavern.getContext();
-                if (ctx && ctx.extensionSettings) {
-                    return ctx.extensionSettings;
-                }
-            } catch (e) {
-                console.warn('⚠️ 无法从 SillyTavern.getContext() 获取 extensionSettings，使用降级方案');
-            }
-        }
-
-        // 降级：直接使用全局 extension_settings
-        if (typeof extension_settings !== 'undefined') {
-            return extension_settings;
-        }
-
-        // 最后降级：返回空对象（但会报错）
-        console.error('❌ 无法获取 extension_settings，数据将无法持久化');
-        return {};
-    },
-
-    _getSaveFunction() {
-        // 优先从 SillyTavern 获取
-        if (typeof SillyTavern !== 'undefined' && typeof SillyTavern.getContext === 'function') {
-            try {
-                const ctx = SillyTavern.getContext();
-                if (ctx && typeof ctx.saveSettingsDebounced === 'function') {
-                    return ctx.saveSettingsDebounced;
-                }
-            } catch (e) {}
-        }
-
-        // 降级：使用全局 saveSettingsDebounced
-        if (typeof saveSettingsDebounced !== 'undefined') {
-            return saveSettingsDebounced;
-        }
-
-        // 最后降级：空函数
-        console.warn('⚠️ 无法获取 saveSettingsDebounced，数据将无法保存到服务器');
-        return () => {};
-    },
-
-    // ============================================================
-    // 数据持久化
+    // 数据持久化（localStorage）
     // ============================================================
 
     /**
      * 加载数据
-     * 优先级：extension_settings > localStorage（迁移）> 默认值
+     * 从 localStorage 读取歌单 + 设置 + 播放状态
      */
     loadData() {
-        const extSettings = this._getStorage();
-        let data = null;
-
-        // 1. 优先从 extension_settings 读取
-        if (extSettings && extSettings[this.MODULE_NAME]) {
-            data = extSettings[this.MODULE_NAME];
-            console.log('📦 从 extension_settings 加载数据');
-        }
-
-        // 2. 如果 extension_settings 没有，尝试从 localStorage 迁移
-        if (!data) {
-            const raw = localStorage.getItem(this.MODULE_NAME);
+        try {
+            const raw = localStorage.getItem(this.STORAGE_KEY);
             if (raw) {
-                try {
-                    data = JSON.parse(raw);
-                    console.log('📦 从 localStorage 迁移数据到 extension_settings');
-
-                    // 迁移成功后立即保存到 extension_settings
-                    if (extSettings) {
-                        extSettings[this.MODULE_NAME] = data;
-                        const saveFn = this._getSaveFunction();
-                        saveFn();
-                    }
-                } catch (e) {
-                    console.warn('⚠️ localStorage 数据解析失败:', e);
+                const data = JSON.parse(raw);
+                this.playlist = data.playlist || [];
+                if (data.state) {
+                    this.state = { ...this.state, ...data.state };
+                    this.state.cfg = { ...defaultConfig, ...data.state.cfg };
+                    
+                    // 确保位置不超出屏幕
+                    const checkPos = (pos, def) => {
+                        if (pos && (pos.x > window.innerWidth - 50 || pos.y > window.innerHeight - 50)) {
+                            pos.x = def.x;
+                            pos.y = def.y;
+                        }
+                        return pos;
+                    };
+                    this.state.playerPos = checkPos(this.state.playerPos, defaultConfig.pos);
+                    this.state.rhythmIconPos = checkPos(this.state.rhythmIconPos, { x: 20, y: 300 });
                 }
+                console.log(`📦 从 localStorage 加载数据：${this.playlist.length} 首歌曲`);
+            } else {
+                console.log('📦 没有找到已保存的数据，使用默认配置');
             }
-        }
-
-        // 3. 如果还是没有，初始化默认数据
-        if (!data) {
-            console.log('📦 初始化新数据');
-            data = {
-                playlist: [],
-                state: {
-                    ...this.state,
-                    cfg: { ...defaultConfig },
-                    playerPos: { x: 20, y: 100 },
-                    rhythmIconPos: { x: 20, y: 300 },
-                    importHistory: []
-                }
-            };
-        }
-
-        // 4. 应用数据到播放器
-        this.playlist = data.playlist || [];
-
-        if (data.state) {
-            // 合并状态，保留默认值作为后备
-            this.state = {
-                ...this.state,
-                ...data.state,
-                cfg: { ...defaultConfig, ...data.state.cfg }
-            };
-
-            // 确保位置不超出屏幕
-            const checkPos = (pos, def) => {
-                if (pos && (pos.x > window.innerWidth - 50 || pos.y > window.innerHeight - 50)) {
-                    pos.x = def.x;
-                    pos.y = def.y;
-                }
-                return pos;
-            };
-            this.state.playerPos = checkPos(this.state.playerPos, defaultConfig.pos);
-            this.state.rhythmIconPos = checkPos(this.state.rhythmIconPos, { x: 20, y: 300 });
+        } catch (e) {
+            console.warn('⚠️ localStorage 数据解析失败:', e);
         }
 
         // 重置运行时状态
         this.state.panel = false;
         this.state.isCaching = false;
-        this._loaded = true;
 
         // 更新 UI
         if (typeof window.updateView === 'function') {
@@ -220,37 +122,22 @@ const MusicPlayerCore = {
         if (typeof window.renderList === 'function') {
             window.renderList();
         }
-
-        console.log(`📦 数据加载完成：${this.playlist.length} 首歌曲`);
     },
 
     /**
      * 保存数据
-     * 主存储：extension_settings（酒馆同步）
-     * 备份：localStorage（防丢）
+     * 存到 localStorage（歌单 + 设置 + 播放状态）
      */
     saveData() {
-        const data = {
-            playlist: this.playlist,
-            state: this.state
-        };
-
-        // 1. 保存到 extension_settings（主存储）
-        const extSettings = this._getStorage();
-        if (extSettings) {
-            extSettings[this.MODULE_NAME] = data;
-            const saveFn = this._getSaveFunction();
-            saveFn();
-            console.log('💾 数据已保存到 extension_settings');
-        } else {
-            console.warn('⚠️ extension_settings 不可用，数据将只保存在 localStorage');
-        }
-
-        // 2. 备份到 localStorage（防止意外丢失）
         try {
-            localStorage.setItem(this.MODULE_NAME, JSON.stringify(data));
+            const data = {
+                playlist: this.playlist,
+                state: this.state
+            };
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+            console.log('💾 数据已保存到 localStorage');
         } catch (e) {
-            console.warn('⚠️ localStorage 备份失败:', e);
+            console.warn('⚠️ localStorage 保存失败:', e);
         }
     },
 
@@ -258,26 +145,16 @@ const MusicPlayerCore = {
      * 清理数据（卸载时调用）
      */
     clearData() {
-        // 清理 extension_settings
-        const extSettings = this._getStorage();
-        if (extSettings && extSettings[this.MODULE_NAME]) {
-            delete extSettings[this.MODULE_NAME];
-            const saveFn = this._getSaveFunction();
-            saveFn();
-            console.log('🗑️ 已从 extension_settings 清理数据');
-        }
-
-        // 清理 localStorage
         try {
-            localStorage.removeItem(this.MODULE_NAME);
-            localStorage.removeItem(this.MODULE_NAME + '_backup');
+            localStorage.removeItem(this.STORAGE_KEY);
             console.log('🗑️ 已从 localStorage 清理数据');
-        } catch (e) {}
-
+        } catch (e) {
+            console.warn('⚠️ localStorage 清理失败:', e);
+        }
+        
         // 清空内存数据
         this.playlist = [];
         this.index = -1;
-        this.state.playlist = [];
         this.state.lyrics = [];
         this.state.importHistory = [];
         this.audio.pause();
@@ -354,13 +231,13 @@ const MusicPlayerCore = {
                     if (typeof window.showStatus === 'function') {
                         window.showStatus('链接已失效，正在重新获取...', 'info');
                     }
-
+                    
                     const refreshFn = this.getRefreshFunction(track);
                     let newUrl = null;
                     if (refreshFn) {
                         newUrl = await refreshFn(track.shareLink);
                     }
-
+                    
                     if (newUrl) {
                         track.url = newUrl;
                         this.saveData();
