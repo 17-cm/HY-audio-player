@@ -206,17 +206,25 @@ function importPlaylistFile() {
 // ============================================================
 
 function getCustomApiConfig() {
+    const core = window.MusicPlayerCore;
+    if (core && core._customApiConfig) {
+        return core._customApiConfig;
+    }
     try {
         const raw = localStorage.getItem('music_player_custom_api');
-        if (raw) {
-            return JSON.parse(raw);
-        }
+        if (raw) return JSON.parse(raw);
     } catch (e) {}
     return null;
 }
 
 function saveCustomApiConfig(config) {
-    localStorage.setItem('music_player_custom_api', JSON.stringify(config));
+    const core = window.MusicPlayerCore;
+    if (core) {
+        core._customApiConfig = config;
+        core.saveData();
+    } else {
+        localStorage.setItem('music_player_custom_api', JSON.stringify(config));
+    }
 }
 
 // ============================================================
@@ -771,7 +779,6 @@ function initPlayer() {
         window.MusicPlayerCore.init();
     }
 
-    // 确保最小化图标初始显示，播放器面板隐藏
     setTimeout(() => {
         const root = document.getElementById('player-root');
         const miniIcon = document.getElementById('player-mini-icon');
