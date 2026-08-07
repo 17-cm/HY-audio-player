@@ -678,7 +678,7 @@ function createExtensionPanel() {
 
                 <div style="display: flex; gap: 6px; margin-bottom: 6px;">
                     <button type="button" id="mini-icon-toggle-btn" class="menu_button" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;">
-                        最小化图标
+                        显示最小化图标
                     </button>
                     <button type="button" id="show-help-btn" class="menu_button" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;">
                         使用说明
@@ -738,14 +738,13 @@ function createExtensionPanel() {
         };
     }
 
-    // 最小化控制（只切换显示，不储存）
+    // 最小化控制：只控制 U3 显示/隐藏
     document.getElementById('mini-icon-toggle-btn').onclick = function() {
-        const root = document.getElementById('player-root');
         const miniIcon = document.getElementById('player-mini-icon');
-        if (root && miniIcon) {
-            const isVisible = root.style.display !== 'none';
-            root.style.display = isVisible ? 'none' : 'flex';
-            miniIcon.style.display = isVisible ? 'flex' : 'none';
+        if (miniIcon) {
+            const isHidden = miniIcon.style.display === 'none';
+            miniIcon.style.display = isHidden ? 'flex' : 'none';
+            this.textContent = isHidden ? '隐藏最小化图标' : '显示最小化图标';
         }
     };
 
