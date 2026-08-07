@@ -2,9 +2,6 @@
  * 音乐播放器扩展入口
  * 版本: 1.0.9
  * 作者: hy.禾一
- * 
- * 修改: 添加生命周期钩子，支持数据持久化到 extension_settings
- *       保留通道检测功能 + 通道切换功能
  */
 
 import { extension_settings } from '../../../extensions.js';
@@ -107,6 +104,106 @@ async function loadAllModules() {
     } catch (error) {
         console.error('❌ 模块加载失败:', error);
     }
+}
+
+// ============================================================
+// 导出歌单
+// ============================================================
+
+function exportPlaylistFile() {
+    const core = window.MusicPlayerCore;
+    if (!core) {
+        if (typeof window.showStatus === 'function') {
+            window.showStatus('播放器未初始化', 'error');
+        }
+        return;
+    }
+    if (core.playlist.length === 0) {
+        if (typeof window.showStatus === 'function') {
+            window.showStatus('歌单为空，无需导出', 'info');
+        } else {
+            alert('歌单为空');
+        }
+        return;
+    }
+    const data = {
+        version: '1.0',
+        exportTime: new Date().toISOString(),
+        total: core.playlist.length,
+        playlist: core.playlist
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `歌单_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    if (typeof window.showStatus === 'function') {
+        window.showStatus(`导出成功！共 ${core.playlist.length} 首歌曲`, 'success');
+    }
+}
+
+// ============================================================
+// 导入歌单
+// ============================================================
+
+function importPlaylistFile() {
+    const core = window.MusicPlayerCore;
+    if (!core) {
+        if (typeof window.showStatus === 'function') {
+            window.showStatus('播放器未初始化', 'error');
+        }
+        return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                const data = JSON.parse(ev.target.result);
+                if (!data.playlist || !Array.isArray(data.playlist)) {
+                    alert('无效的歌单文件：缺少 playlist 字段');
+                    return;
+                }
+                if (data.playlist.length === 0) {
+                    alert('歌单文件为空');
+                    return;
+                }
+                // 询问是追加还是覆盖
+                const isAppend = confirm(
+                    `歌单文件包含 ${data.playlist.length} 首歌曲\n\n` +
+                    '点击「确定」追加到现有歌单\n' +
+                    '点击「取消」覆盖现有歌单'
+                );
+                if (isAppend) {
+                    core.playlist = core.playlist.concat(data.playlist);
+                } else {
+                    core.playlist = data.playlist;
+                }
+                core.saveData();
+                if (typeof window.renderList === 'function') {
+                    window.renderList();
+                }
+                if (typeof window.updateView === 'function') {
+                    window.updateView();
+                }
+                if (typeof window.showStatus === 'function') {
+                    window.showStatus(`导入成功！共 ${core.playlist.length} 首歌曲`, 'success');
+                } else {
+                    alert(`导入成功！共 ${core.playlist.length} 首歌曲`);
+                }
+            } catch (err) {
+                alert('文件解析失败：' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
 }
 
 // ============================================================
@@ -238,7 +335,7 @@ function showChannelSwitchDialog() {
 }
 
 // ============================================================
-// 通道检测系统（保留自原版）
+// 通道检测系统
 // ============================================================
 
 function showChannelTestDialog() {
@@ -261,7 +358,7 @@ function showChannelTestDialog() {
             line-height: 1.6;
         ">
             <div style="text-align: center; margin-bottom: 20px;">
-                <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1a1a1a;">选择检测通道</h2>
+                <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1a1a1a;">通道检测</h2>
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
                 <button class="platform-btn" data-platform="qishui" style="
@@ -274,7 +371,7 @@ function showChannelTestDialog() {
                     font-weight: 500;
                     color: #1a1a1a;
                     transition: all 0.2s;
-                ">🍹 汽水音乐通道检测</button>
+                ">汽水音乐</button>
                 <button class="platform-btn" data-platform="netease" style="
                     padding: 12px;
                     background: #f5f5f5;
@@ -285,7 +382,7 @@ function showChannelTestDialog() {
                     font-weight: 500;
                     color: #1a1a1a;
                     transition: all 0.2s;
-                ">🎵 网易云通道检测</button>
+                ">网易云音乐</button>
                 <button id="test-dialog-cancel" style="
                     margin-top: 6px;
                     background: none;
@@ -382,7 +479,7 @@ async function testQishuiChannel() {
 async function testNeteaseChannel() {
     showResultDialog('检测中...', '⏳ 正在检测网易云通道...');
     try {
-        const response = await fetch('https://api.qijieya.cn/meting/?server=netease&type=song&id=1397345903');
+        const response = await fetch('https://api.qijeya.cn/meting/?type=song&id=1397345903');
         if (response.ok) {
             const data = await response.json();
             if (data && data[0] && data[0].name) {
@@ -408,7 +505,7 @@ async function testNeteaseChannel() {
 }
 
 // ============================================================
-// 使用说明弹窗（原版样式）
+// 使用说明弹窗
 // ============================================================
 
 function showHelp() {
@@ -483,14 +580,14 @@ function showHelp() {
                 <div style="font-size: 13px; color: #333; line-height: 1.8;">
                     <div>• 支持网易云音乐、汽水音乐分享链接解析</div>
                     <div>• 支持单曲导入和歌单导入（网易云）</div>
-                    <div>• 粘贴链接时可直接粘贴完整分享文案，自动提取链接</div>
+                    <div>• 支持歌单导出和导入（备份/迁移）</div>
                 </div>
             </div>
 
             <div style="background: #fff3e0; border-radius: 12px; padding: 14px 16px; border: 1px solid #ffcc80; margin-bottom: 10px;">
                 <div style="font-weight: 600; font-size: 14px; color: #e65100; margin-bottom: 4px;">⚠️ 重要提示</div>
                 <div style="font-size: 13px; color: #bf360c; line-height: 1.6;">
-                    导入歌曲或歌单后，请务必点击播放列表底部的 <strong>⟳ 一键缓存</strong>，否则刷新页面后歌曲链接可能失效。
+                    更换浏览器或重装酒馆后，使用「导入歌单」功能恢复歌曲列表。
                 </div>
             </div>
 
@@ -540,25 +637,35 @@ function createExtensionPanel() {
             </div>
             <div class="inline-drawer-content" style="display: none;">
 
-                <!-- 通道切换 -->
-                <button type="button" id="channel-switch-btn" class="menu_button" style="width: 100%; margin-bottom: 10px;">
-                    🔄 通道切换
-                </button>
+                <!-- 第一行：最小化图标 + 使用说明 -->
+                <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                    <button type="button" id="mini-icon-toggle-btn" class="menu_button" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;">
+                        ${settings.miniIconVisible !== false ? '隐藏最小化图标' : '显示最小化图标'}
+                    </button>
+                    <button type="button" id="show-help-btn" class="menu_button" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;">
+                        使用说明
+                    </button>
+                </div>
 
-                <!-- 通道检测 -->
-                <button type="button" id="test-channels-btn" class="menu_button" style="width: 100%; margin-bottom: 10px;">
-                    📡 通道检测
-                </button>
+                <!-- 第二行：导入歌单 + 导出歌单 -->
+                <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                    <button type="button" id="import-playlist-btn" class="menu_button" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;">
+                        导入歌单
+                    </button>
+                    <button type="button" id="export-playlist-btn" class="menu_button" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;">
+                        导出歌单
+                    </button>
+                </div>
 
-                <!-- 最小化控制 -->
-                <button type="button" id="mini-icon-toggle-btn" class="menu_button" style="width: 100%; margin-bottom: 10px;">
-                    ${settings.miniIconVisible !== false ? '隐藏最小化图标' : '显示最小化图标'}
-                </button>
-
-                <!-- 使用说明 -->
-                <button type="button" id="show-help-btn" class="menu_button" style="width: 100%; margin-bottom: 10px;">
-                    ❓ 使用说明
-                </button>
+                <!-- 第三行：通道切换 + 通道检测 -->
+                <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                    <button type="button" id="channel-switch-btn" class="menu_button" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;">
+                        通道切换
+                    </button>
+                    <button type="button" id="test-channels-btn" class="menu_button" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;">
+                        通道检测
+                    </button>
+                </div>
 
                 <!-- 注脚 -->
                 <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #e0e0e0;">
@@ -572,6 +679,7 @@ function createExtensionPanel() {
 
     container.insertAdjacentHTML('beforeend', html);
 
+    // ===== 折叠事件 =====
     const drawerToggle = document.querySelector('#music-player-extension .inline-drawer-toggle');
     if (drawerToggle) {
         drawerToggle.addEventListener('click', function(e) {
@@ -589,16 +697,7 @@ function createExtensionPanel() {
         });
     }
 
-    const channelBtn = document.getElementById('channel-switch-btn');
-    if (channelBtn) {
-        channelBtn.addEventListener('click', showChannelSwitchDialog);
-    }
-
-    const testBtn = document.getElementById('test-channels-btn');
-    if (testBtn) {
-        testBtn.addEventListener('click', showChannelTestDialog);
-    }
-
+    // ===== 最小化控制 =====
     const miniToggleBtn = document.getElementById('mini-icon-toggle-btn');
     if (miniToggleBtn) {
         miniToggleBtn.addEventListener('click', () => {
@@ -606,7 +705,6 @@ function createExtensionPanel() {
             settings.miniIconVisible = !settings.miniIconVisible;
             extension_settings[EXTENSION_NAME] = settings;
             saveExtensionSettings();
-
             const icon = document.getElementById('player-mini-icon');
             if (icon) {
                 icon.style.display = settings.miniIconVisible ? 'flex' : 'none';
@@ -615,9 +713,34 @@ function createExtensionPanel() {
         });
     }
 
+    // ===== 使用说明 =====
     const helpBtn = document.getElementById('show-help-btn');
     if (helpBtn) {
         helpBtn.addEventListener('click', showHelp);
+    }
+
+    // ===== 导入歌单 =====
+    const importBtn = document.getElementById('import-playlist-btn');
+    if (importBtn) {
+        importBtn.addEventListener('click', importPlaylistFile);
+    }
+
+    // ===== 导出歌单 =====
+    const exportBtn = document.getElementById('export-playlist-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportPlaylistFile);
+    }
+
+    // ===== 通道切换 =====
+    const channelBtn = document.getElementById('channel-switch-btn');
+    if (channelBtn) {
+        channelBtn.addEventListener('click', showChannelSwitchDialog);
+    }
+
+    // ===== 通道检测 =====
+    const testBtn = document.getElementById('test-channels-btn');
+    if (testBtn) {
+        testBtn.addEventListener('click', showChannelTestDialog);
     }
 }
 
@@ -730,6 +853,8 @@ window.getCurrentNeteaseChannel = getCurrentNeteaseChannel;
 window.getCurrentQishuiChannel = getCurrentQishuiChannel;
 window.getExtensionSettings = getExtensionSettings;
 window.saveExtensionSettings = saveExtensionSettings;
+window.exportPlaylistFile = exportPlaylistFile;
+window.importPlaylistFile = importPlaylistFile;
 
 // ============================================================
 // 启动
